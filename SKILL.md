@@ -1,6 +1,6 @@
 ---
-name: vault
-description: Personal file vault — auto-categorize incoming files, maintain an index, and retrieve on request. Use when receiving files to store, or when asked to find/retrieve a previously stored file.
+name: claw-files
+description: "Claw Files — personal file vault for OpenClaw. Auto-categorize incoming files, maintain a searchable INDEX.md, and retrieve on request. Use when receiving files to store, or when asked to find/retrieve a previously stored file."
 ---
 
 # Vault
