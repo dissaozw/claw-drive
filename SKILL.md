@@ -7,6 +7,17 @@ description: "Claw Drive — AI-managed personal drive for OpenClaw. Auto-catego
 
 Organize and retrieve personal files with auto-categorization and a searchable index.
 
+## ⚠️ Privacy — Read This First
+
+**File contents are personal data. Treat them accordingly.**
+
+- **NEVER read file contents without explicit user consent.** Always ask first. Always.
+- **If the user doesn't reply → default to SENSITIVE.** Silence = no consent.
+- **`identity/` files are ALWAYS sensitive** — never read, never extract, never log contents.
+- **Extracted content enters the conversation transcript** which is logged permanently to `.jsonl` files. Once you read a file, its contents are in the logs forever.
+- **Descriptions in INDEX.md are also persistent.** Don't put sensitive details (SSNs, account numbers, passwords) in descriptions even for non-sensitive files — use redacted/partial forms (e.g. "account ending ****4321").
+- **When in doubt, don't read.** A vague index entry is better than leaked personal data.
+
 ## Dependencies
 
 - **claw-drive CLI** — `make install` from the skill directory (symlinks to `~/.local/bin/`)
@@ -90,6 +101,16 @@ claw-drive store invoice.pdf -c medical -n "sorbet-vet-invoice-2026-02-15.pdf" \
 claw-drive store w2.pdf -c finance -n "w2-2025.pdf" \
   -d "W-2 tax form 2025 - Employer: Acme Corp, wages $120,000" \
   -t "finance, tax-2025, w2" -s email
+
+# Sensitive file — user said "keep it private" or didn't reply
+claw-drive store scan.pdf -c identity -n "passport-scan-2026.pdf" \
+  -d "Passport scan" \
+  -t "identity, passport" -s telegram
+
+# Sensitive file — user provided brief description
+claw-drive store doc.pdf -c contracts -n "apartment-lease-2026.pdf" \
+  -d "Apartment lease agreement, signed Jan 2026" \
+  -t "contracts, lease, housing" -s email
 ```
 
 ### Naming conventions
@@ -179,6 +200,16 @@ Use the `exclude` list in `.sync-config` to keep sensitive directories local-onl
 ## Tips
 
 - The CLI maintains INDEX.md automatically — don't edit it manually
-- For sensitive files (identity/), note that in the index but don't describe contents in detail
 - PDF text extraction: `uv run --with pymupdf python3 -c "import pymupdf; ..."`
 - Use `claw-drive status` to see file counts, size, and sync status
+
+## Privacy Checklist (every store)
+
+Before storing any file, verify:
+
+- [ ] Did I ask the user about privacy? (not optional)
+- [ ] If no reply: am I treating it as sensitive? (must be yes)
+- [ ] If sensitive: am I skipping content extraction? (must be yes)
+- [ ] If `identity/`: am I skipping extraction regardless? (must be yes)
+- [ ] Are there SSNs, full account numbers, or passwords in my description? (must be no)
+- [ ] Would I be comfortable if this INDEX.md entry leaked? (must be yes)

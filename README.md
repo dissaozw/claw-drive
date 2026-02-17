@@ -8,6 +8,8 @@
 
 Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags them for cross-cutting search, deduplicates by content, and retrieves them in natural language — all backed by Google Drive for cloud sync and security.
 
+**Privacy is not a feature — it's the foundation.** Your agent never reads file contents without asking. If you don't respond, it defaults to private. Sensitive categories like `identity/` are never read, never synced. Your data stays yours.
+
 ## Features
 
 - 📂 **Auto-categorize** — files sorted into the right folder without you thinking about it
@@ -165,18 +167,43 @@ You ← natural language → AI Agent (OpenClaw)
 | `photos/` | Personal photos, document scans |
 | `misc/` | Anything that doesn't fit above |
 
-## Privacy & Sensitive Files
+## Privacy & Security
 
-Claw Drive defaults to **safe**. The agent never reads file contents without asking first.
+**Claw Drive treats your files as personal data by default.** This isn't an afterthought — it's a core design decision.
+
+### The Problem
+
+AI agents that read your files put those contents into conversation transcripts — which are logged permanently. A "helpful" agent that reads your passport scan, tax return, or medical record has now copied that data into a `.jsonl` log file. That's a leak, not a feature.
+
+### The Solution
+
+Claw Drive's agent **always asks before reading**. And if you don't answer, it assumes the answer is no.
 
 | Scenario | Behavior |
 |----------|----------|
 | User says "go ahead" | Full content extraction → rich description + specific tags |
 | User says "keep it private" | Filename-only classification, asks for brief description |
-| User doesn't reply | **Defaults to sensitive** — no content reading |
-| File goes to `identity/` | **Always sensitive** — contents never read, excluded from sync |
+| **User doesn't reply** | **Defaults to sensitive** — no content reading |
+| **File goes to `identity/`** | **Always sensitive** — contents never read, never synced |
 
-Sensitive files are still stored, deduplicated, tagged, and indexed — they just get descriptions from filenames and user input instead of content extraction. Nothing sensitive ends up in conversation logs.
+### What "sensitive" means in practice
+
+- File contents are **never read** by the agent
+- Classification uses **filename and user input only**
+- INDEX.md descriptions are kept **generic** (no SSNs, account numbers, etc.)
+- `identity/` is **excluded from cloud sync** by default
+- The file is still stored, hashed (for dedup), tagged, and indexed — just without content extraction
+
+### Defense in depth
+
+| Layer | Protection |
+|-------|-----------|
+| Consent | Agent asks before reading any file |
+| Default-safe | No reply = sensitive |
+| Category rules | `identity/` always sensitive, excluded from sync |
+| Sync exclusion | `.sync-config` exclude list for any category |
+| Index hygiene | No raw sensitive data in descriptions |
+| Local-first | Cloud sync is optional, not default |
 
 ## Documentation
 
