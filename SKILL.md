@@ -7,6 +7,13 @@ description: "Claw Drive — AI-managed personal drive for OpenClaw. Auto-catego
 
 Organize and retrieve personal files with auto-categorization and a searchable index.
 
+## Dependencies
+
+- **claw-drive CLI** — `make install` from the skill directory (symlinks to `~/.local/bin/`)
+- **pymupdf** — PDF text extraction (`uv run --with pymupdf` — no global install needed)
+- **rclone** — Google Drive sync (optional): `brew install rclone`
+- **fswatch** — file watch daemon (optional): `brew install fswatch`
+
 ## Setup
 
 ```bash
@@ -61,10 +68,21 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 - Reuse existing tags when possible — check `claw-drive tags` before inventing new ones
 
 **Examples:**
-```
-claw-drive store invoice.pdf -c medical -n "sorbet-vet-invoice-2026-02-15.pdf" -d "VEG emergency visit invoice" -t "medical, invoice, sorbet, emergency" -s email
-claw-drive store w2.pdf -c finance -n "w2-2025.pdf" -d "W-2 tax form 2025" -t "finance, tax-2025" -s email
-claw-drive store itinerary.pdf -c travel -n "japan-itinerary-2026-03.pdf" -d "Tokyo trip itinerary" -t "travel, japan" -s telegram
+```bash
+# Insurance PDF — after extracting: policy 525613441, 2024 MB GLC 43, VIN, dates, agent
+claw-drive store file.pdf -c insurance -n "farmers-auto-id-cards-52561-34-41.pdf" \
+  -d "Farmers Insurance ID cards - 2024 Mercedes-Benz AMG GLC 43, VIN W1NKM8HB3RF183530, Policy 525613441, effective 1/21/2026–7/21/2026, agent Jiaying Su (650) 863-2544" \
+  -t "insurance, auto, farmers, id-card, policy-525613441, mercedes-benz, glc-43, california" -s telegram
+
+# Vet invoice — after extracting: clinic, amount, diagnosis, pet name
+claw-drive store invoice.pdf -c medical -n "sorbet-vet-invoice-2026-02-15.pdf" \
+  -d "VEG emergency visit invoice - Sorbet, $1,234.56, bronchial pattern diagnosis, prednisolone prescribed" \
+  -t "medical, invoice, sorbet, emergency, vet" -s email
+
+# W-2 — after extracting: employer, tax year, wages
+claw-drive store w2.pdf -c finance -n "w2-2025.pdf" \
+  -d "W-2 tax form 2025 - Employer: Acme Corp, wages $120,000" \
+  -t "finance, tax-2025, w2" -s email
 ```
 
 ### Naming conventions
@@ -90,6 +108,28 @@ claw-drive store itinerary.pdf -c travel -n "japan-itinerary-2026-03.pdf" -d "To
 | misc | Anything that doesn't fit above |
 
 **When in doubt:** `misc/` is fine. Better to store it somewhere than not at all.
+
+## Migration
+
+Bulk-import files from an existing directory:
+
+```bash
+# 1. Scan source directory into a plan
+claw-drive migrate scan ~/messy-folder plan.json
+
+# 2. Agent classifies each file (fills in category, name, tags, description in the JSON)
+
+# 3. Review
+claw-drive migrate summary plan.json
+
+# 4. Dry run
+claw-drive migrate apply plan.json --dry-run
+
+# 5. Execute
+claw-drive migrate apply plan.json
+```
+
+The plan JSON contains one entry per file with `category`, `name`, `tags`, `description` fields (initially null). The agent fills these in using the same extract-first approach, then `apply` copies files with full dedup and indexing.
 
 ## Sync (Optional)
 
