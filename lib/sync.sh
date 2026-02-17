@@ -2,9 +2,9 @@
 # lib/sync.sh — Google Drive sync daemon for Claw Drive
 
 SYNC_DEBOUNCE_SEC=3
-SYNC_AUTH_TIMEOUT=120  # Kill ngrok after 2 minutes regardless
+SYNC_AUTH_TIMEOUT=120  # Kill tunnel after 2 minutes regardless
 
-# Authenticate with Google Drive via rclone + ngrok tunnel
+# Authenticate with Google Drive via rclone + cloudflared tunnel
 sync_auth() {
   echo "🔐 Claw Drive — Google Drive Authorization"
   echo ""
@@ -29,27 +29,55 @@ sync_auth() {
 
   local tunnel_pid=""
   local rclone_pid=""
+  local timeout_pid=""
   local tunnel_log
   tunnel_log=$(mktemp)
+  local rclone_out
+  rclone_out=$(mktemp)
 
   # Cleanup function — always kill tunnel and rclone
   _sync_auth_cleanup() {
     [[ -n "$tunnel_pid" ]] && kill "$tunnel_pid" 2>/dev/null && wait "$tunnel_pid" 2>/dev/null
     [[ -n "$rclone_pid" ]] && kill "$rclone_pid" 2>/dev/null && wait "$rclone_pid" 2>/dev/null
-    rm -f "$tunnel_log"
+    [[ -n "${timeout_pid:-}" ]] && kill "$timeout_pid" 2>/dev/null
+    rm -f "$tunnel_log" "$rclone_out"
     echo ""
     echo "🔒 Tunnel closed."
   }
   trap _sync_auth_cleanup EXIT
 
-  # Start cloudflared tunnel to rclone's OAuth callback port
+  # Step 1: Start rclone first — it opens an HTTP server on :53682
+  echo "🔑 Starting authorization server..."
+  rclone authorize "drive" --auth-no-open-browser > "$rclone_out" 2>&1 &
+  rclone_pid=$!
+
+  # Wait for rclone to print its auth URL (means server is ready)
+  local waited=0
+  local auth_path=""
+  while [[ $waited -lt 10 ]]; do
+    sleep 1
+    ((waited++)) || true
+    auth_path=$(grep -o '/auth?state=[^ ]*' "$rclone_out" 2>/dev/null | head -1 || true)
+    if [[ -n "$auth_path" ]]; then
+      break
+    fi
+  done
+
+  if [[ -z "$auth_path" ]]; then
+    echo "❌ rclone failed to start auth server."
+    cat "$rclone_out"
+    return 1
+  fi
+  echo "✅ Auth server ready"
+
+  # Step 2: Start cloudflared tunnel now that rclone is ready
   echo "🔗 Starting secure tunnel..."
   cloudflared tunnel --url http://localhost:53682 > "$tunnel_log" 2>&1 &
   tunnel_pid=$!
 
   # Wait for cloudflared to provide the public URL (max 15 seconds)
   local tunnel_url=""
-  local waited=0
+  waited=0
   while [[ -z "$tunnel_url" && $waited -lt 15 ]]; do
     sleep 1
     ((waited++)) || true
@@ -62,47 +90,22 @@ sync_auth() {
     return 1
   fi
 
-  echo "✅ Tunnel ready: $tunnel_url"
+  echo "✅ Tunnel ready"
   echo ""
 
-  # Start safety timeout — kill tunnel after SYNC_AUTH_TIMEOUT seconds
+  # Start safety timeout
   (
     sleep "$SYNC_AUTH_TIMEOUT"
     kill "$tunnel_pid" 2>/dev/null
+    kill "$rclone_pid" 2>/dev/null
     echo ""
     echo "⏰ Auth timeout (${SYNC_AUTH_TIMEOUT}s). Tunnel killed for safety."
   ) &
-  local timeout_pid=$!
+  timeout_pid=$!
 
-  # Start rclone authorize with the ngrok redirect
-  echo "🔑 Starting Google Drive authorization..."
-  echo "   Paste this URL in your browser to authorize:"
+  echo "🌐 Open this link to authorize Google Drive:"
   echo ""
-
-  # Run rclone authorize and capture output
-  local rclone_out
-  rclone_out=$(mktemp)
-  RCLONE_OAUTH_CALLBACK_URL="$tunnel_url" rclone authorize "drive" > "$rclone_out" 2>&1 &
-  rclone_pid=$!
-
-  # Wait for rclone to print the auth URL (max 15 seconds)
-  local auth_path=""
-  waited=0
-  while [[ -z "$auth_path" && $waited -lt 15 ]]; do
-    sleep 1
-    ((waited++)) || true
-    auth_path=$(grep -o 'http://127.0.0.1:53682/auth?[^ ]*' "$rclone_out" 2>/dev/null | head -1 | sed 's|http://127.0.0.1:53682||' || true)
-  done
-
-  if [[ -n "$auth_path" ]]; then
-    echo ""
-    echo "   ${tunnel_url}${auth_path}"
-    echo ""
-  else
-    echo "   (waiting for rclone to generate auth URL...)"
-    echo "   Check rclone output: $rclone_out"
-  fi
-
+  echo "   ${tunnel_url}${auth_path}"
   echo ""
   echo "⏳ Waiting for authorization (timeout: ${SYNC_AUTH_TIMEOUT}s)..."
 
@@ -113,6 +116,7 @@ sync_auth() {
 
   # Kill timeout watcher
   kill "$timeout_pid" 2>/dev/null || true
+  timeout_pid=""
 
   # Kill tunnel immediately
   if [[ -n "$tunnel_pid" ]]; then
