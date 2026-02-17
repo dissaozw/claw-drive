@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+# claw-drive — AI-managed personal drive
+# https://github.com/dissaozw/claw-drive
+
+set -euo pipefail
+
+CLAW_DRIVE_VERSION="0.1.0"
+CLAW_DRIVE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Load libraries
+source "$CLAW_DRIVE_ROOT/lib/config.sh"
+source "$CLAW_DRIVE_ROOT/lib/index.sh"
+source "$CLAW_DRIVE_ROOT/lib/dedup.sh"
+source "$CLAW_DRIVE_ROOT/lib/sync.sh"
+
+# --- Commands ---
+
+cmd_init() {
+  echo "🗄️  Initializing Claw Drive at $CLAW_DRIVE_DIR"
+  echo ""
+
+  for cat in "${CLAW_DRIVE_CATEGORIES[@]}"; do
+    mkdir -p "$CLAW_DRIVE_DIR/$cat"
+    echo "  📂 $cat/"
+  done
+
+  if [[ ! -f "$CLAW_DRIVE_INDEX" ]]; then
+    cat > "$CLAW_DRIVE_INDEX" <<'EOF'
+# 📁 Claw Drive — Personal File Index
+
+## Directory Structure
+- **documents/** — general docs, letters, forms
+- **finance/** — tax, bank statements, investment docs
+- **medical/** — health records, insurance, prescriptions
+- **travel/** — tickets, itineraries, visas, bookings
+- **identity/** — ID scans, certificates (⚠️ sensitive)
+- **receipts/** — purchase receipts, warranties, invoices
+- **contracts/** — leases, employment, legal agreements
+- **photos/** — personal photos, scans
+- **misc/** — anything that doesn't fit above
+
+## File Index
+<!-- Auto-maintained by Claw Drive. Format: date | path | description | tags | source -->
+
+| Date | Path | Description | Tags | Source |
+|------|------|-------------|------|--------|
+
+---
+*Last updated: YYYY-MM-DD*
+EOF
+    echo "  📄 INDEX.md created"
+  else
+    echo "  📄 INDEX.md exists"
+  fi
+
+  touch "$CLAW_DRIVE_HASHES"
+  echo ""
+  echo "✅ Claw Drive ready at $CLAW_DRIVE_DIR"
+}
+
+cmd_store() {
+  local file="" category="" description="" tags="" source_name=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --category|-c) category="$2"; shift 2 ;;
+      --desc|-d) description="$2"; shift 2 ;;
+      --tags|-t) tags="$2"; shift 2 ;;
+      --source|-s) source_name="$2"; shift 2 ;;
+      --json) local json_output=true; shift ;;
+      *) file="$1"; shift ;;
+    esac
+  done
+
+  if [[ -z "$file" || ! -f "$file" ]]; then
+    echo "❌ Usage: claw-drive store <file> --category <cat> --desc <description> [--tags <tags>] [--source <source>]"
+    return 1
+  fi
+
+  claw_drive_init || return 1
+
+  # Check for duplicates
+  local existing
+  if existing=$(dedup_check "$file"); then
+    echo "⚠️  Duplicate detected! File already exists at: $CLAW_DRIVE_DIR/$existing"
+    return 1
+  fi
+
+  if [[ -z "$category" ]]; then
+    echo "❌ --category is required"
+    return 1
+  fi
+
+  if [[ -z "$description" ]]; then
+    echo "❌ --desc is required"
+    return 1
+  fi
+
+  # Build filename
+  local basename
+  basename=$(basename "$file")
+  local dest="$CLAW_DRIVE_DIR/$category/$basename"
+
+  # Copy file
+  mkdir -p "$CLAW_DRIVE_DIR/$category"
+  cp "$file" "$dest"
+
+  # Register hash
+  dedup_register "$dest" "$category/$basename"
+
+  # Update index
+  local date_str
+  date_str=$(date +%Y-%m-%d)
+  local index_row="| $date_str | $category/$basename | $description | ${tags:-} | ${source_name:-manual} |"
+
+  # Insert before the trailing --- line
+  if grep -q '^---$' "$CLAW_DRIVE_INDEX"; then
+    sed -i '' "/^---$/i\\
+$index_row
+" "$CLAW_DRIVE_INDEX"
+  else
+    echo "$index_row" >> "$CLAW_DRIVE_INDEX"
+  fi
+
+  if [[ "${json_output:-}" == "true" ]]; then
+    printf '{"status":"stored","path":"%s","category":"%s","tags":"%s","hash":"%s"}\n' \
+      "$category/$basename" "$category" "${tags:-}" "$(dedup_hash "$dest")"
+  else
+    echo "✅ Stored: $category/$basename"
+    [[ -n "$tags" ]] && echo "   Tags: $tags"
+    echo "   Description: $description"
+  fi
+}
+
+cmd_search() {
+  local query="" format="table"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) format="json"; shift ;;
+      *) query="$1"; shift ;;
+    esac
+  done
+
+  if [[ -z "$query" ]]; then
+    echo "❌ Usage: claw-drive search <query> [--json]"
+    return 1
+  fi
+
+  claw_drive_init || return 1
+  index_search "$query" "$format"
+}
+
+cmd_list() {
+  local format="table"
+  [[ "${1:-}" == "--json" ]] && format="json"
+  claw_drive_init || return 1
+  index_list "$format"
+}
+
+cmd_tags() {
+  local format="table"
+  [[ "${1:-}" == "--json" ]] && format="json"
+  claw_drive_init || return 1
+  index_tags "$format"
+}
+
+cmd_status() {
+  local format="table"
+  [[ "${1:-}" == "--json" ]] && format="json"
+
+  echo "🗄️  Claw Drive Status"
+  echo ""
+  echo "📂 Directory: $CLAW_DRIVE_DIR"
+
+  if [[ -d "$CLAW_DRIVE_DIR" ]]; then
+    local file_count
+    file_count=$(find "$CLAW_DRIVE_DIR" -type f \
+      ! -name '.*' ! -name 'INDEX.md' ! -path '*/.git/*' | wc -l | xargs)
+    echo "📄 Files: $file_count"
+
+    local total_size
+    total_size=$(du -sh "$CLAW_DRIVE_DIR" 2>/dev/null | awk '{print $1}')
+    echo "💾 Size: $total_size"
+  else
+    echo "❌ Directory not found"
+  fi
+
+  echo ""
+  dedup_status "$format"
+  echo ""
+  sync_status "$format"
+}
+
+cmd_sync() {
+  local subcmd="${1:-help}"
+  shift || true
+
+  case "$subcmd" in
+    setup)   sync_setup ;;
+    push)    sync_push ;;
+    start)   sync_start ;;
+    stop)    sync_stop ;;
+    status)  sync_status "${1:-table}" ;;
+    _watch)  sync_watch_loop ;;
+    help|*)
+      echo "Usage: claw-drive sync <command>"
+      echo ""
+      echo "Commands:"
+      echo "  setup   — check dependencies and configuration"
+      echo "  push    — one-shot sync to remote"
+      echo "  start   — start background sync daemon"
+      echo "  stop    — stop background sync daemon"
+      echo "  status  — show sync status"
+      ;;
+  esac
+}
+
+cmd_version() {
+  echo "claw-drive $CLAW_DRIVE_VERSION"
+}
+
+cmd_help() {
+  cat <<EOF
+🗄️  Claw Drive — AI-managed personal drive
+
+Usage: claw-drive <command> [options]
+
+Commands:
+  init                          Initialize drive directory
+  store <file> [options]        Store a file with categorization
+  search <query> [--json]       Search files by description, tags, or path
+  list [--json]                 List all indexed files
+  tags [--json]                 List all tags with usage counts
+  status [--json]               Show drive status
+  sync <subcommand>             Manage Google Drive sync
+  version                       Show version
+  help                          Show this help
+
+Store options:
+  --category, -c <category>     Target category (required)
+  --desc, -d <description>      File description (required)
+  --tags, -t <tag1,tag2>        Comma-separated tags
+  --source, -s <source>         Source (email, telegram, manual)
+  --json                        JSON output
+
+Environment:
+  CLAW_DRIVE_DIR                Drive directory (default: ~/claw-drive)
+
+https://github.com/dissaozw/claw-drive
+EOF
+}
+
+# --- Main ---
+
+case "${1:-help}" in
+  init)     shift; cmd_init "$@" ;;
+  store)    shift; cmd_store "$@" ;;
+  search)   shift; cmd_search "$@" ;;
+  list)     shift; cmd_list "$@" ;;
+  tags)     shift; cmd_tags "$@" ;;
+  status)   shift; cmd_status "$@" ;;
+  sync)     shift; cmd_sync "$@" ;;
+  version|--version|-v) cmd_version ;;
+  help|--help|-h) cmd_help ;;
+  *)
+    echo "Unknown command: $1"
+    echo "Run 'claw-drive help' for usage."
+    exit 1
+    ;;
+esac
