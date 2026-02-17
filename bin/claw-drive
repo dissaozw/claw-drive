@@ -198,6 +198,7 @@ cmd_sync() {
   shift || true
 
   case "$subcmd" in
+    auth)    sync_auth ;;
     setup)   sync_setup ;;
     push)    sync_push ;;
     start)   sync_start ;;
@@ -208,6 +209,7 @@ cmd_sync() {
       echo "Usage: claw-drive sync <command>"
       echo ""
       echo "Commands:"
+      echo "  auth    — authorize Google Drive (one-time, uses ngrok tunnel)"
       echo "  setup   — check dependencies and configuration"
       echo "  push    — one-shot sync to remote"
       echo "  start   — start background sync daemon"
@@ -276,6 +278,7 @@ Commands:
   tags [--json]                 List all tags with usage counts
   status [--json]               Show drive status
   migrate <subcommand>          Migrate files from existing directory
+  sync auth                     Authorize Google Drive (one-time)
   sync <subcommand>             Manage Google Drive sync
   version                       Show version
   help                          Show this help

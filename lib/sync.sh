@@ -2,6 +2,169 @@
 # lib/sync.sh — Google Drive sync daemon for Claw Drive
 
 SYNC_DEBOUNCE_SEC=3
+SYNC_AUTH_TIMEOUT=120  # Kill ngrok after 2 minutes regardless
+
+# Authenticate with Google Drive via rclone + ngrok tunnel
+sync_auth() {
+  echo "🔐 Claw Drive — Google Drive Authorization"
+  echo ""
+
+  # Check dependencies
+  if ! command -v rclone &>/dev/null; then
+    echo "❌ rclone not found. Install: brew install rclone"
+    return 1
+  fi
+  if ! command -v ngrok &>/dev/null; then
+    echo "❌ ngrok not found. Install: brew install ngrok"
+    return 1
+  fi
+
+  # Check if remote already exists
+  if rclone listremotes 2>/dev/null | grep -q "^gdrive:$"; then
+    echo "⚠️  rclone remote 'gdrive' already exists."
+    echo "   To re-authorize, run: rclone config delete gdrive"
+    echo "   Then run this command again."
+    return 1
+  fi
+
+  local ngrok_pid=""
+  local rclone_pid=""
+  local ngrok_log
+  ngrok_log=$(mktemp)
+
+  # Cleanup function — always kill ngrok and rclone
+  _sync_auth_cleanup() {
+    [[ -n "$ngrok_pid" ]] && kill "$ngrok_pid" 2>/dev/null && wait "$ngrok_pid" 2>/dev/null
+    [[ -n "$rclone_pid" ]] && kill "$rclone_pid" 2>/dev/null && wait "$rclone_pid" 2>/dev/null
+    rm -f "$ngrok_log"
+    echo ""
+    echo "🔒 Tunnel closed."
+  }
+  trap _sync_auth_cleanup EXIT
+
+  # Start ngrok tunnel to rclone's OAuth callback port
+  echo "🔗 Starting secure tunnel..."
+  ngrok http 53682 --log=stdout --log-format=json > "$ngrok_log" 2>&1 &
+  ngrok_pid=$!
+
+  # Wait for ngrok to provide the public URL (max 10 seconds)
+  local ngrok_url=""
+  local waited=0
+  while [[ -z "$ngrok_url" && $waited -lt 10 ]]; do
+    sleep 1
+    ((waited++)) || true
+    ngrok_url=$(grep -o '"url":"https://[^"]*"' "$ngrok_log" 2>/dev/null | head -1 | sed 's/"url":"//;s/"//' || true)
+  done
+
+  if [[ -z "$ngrok_url" ]]; then
+    echo "❌ Failed to start ngrok tunnel."
+    return 1
+  fi
+
+  echo "✅ Tunnel ready: $ngrok_url"
+  echo ""
+
+  # Start safety timeout — kill ngrok after SYNC_AUTH_TIMEOUT seconds
+  (
+    sleep "$SYNC_AUTH_TIMEOUT"
+    kill "$ngrok_pid" 2>/dev/null
+    echo ""
+    echo "⏰ Auth timeout (${SYNC_AUTH_TIMEOUT}s). Tunnel killed for safety."
+  ) &
+  local timeout_pid=$!
+
+  # Start rclone authorize with the ngrok redirect
+  echo "🔑 Starting Google Drive authorization..."
+  echo "   Paste this URL in your browser to authorize:"
+  echo ""
+
+  # Run rclone authorize and capture output
+  local rclone_out
+  rclone_out=$(mktemp)
+  RCLONE_OAUTH_CALLBACK_URL="$ngrok_url" rclone authorize "drive" > "$rclone_out" 2>&1 &
+  rclone_pid=$!
+
+  # Wait for rclone to print the auth URL (max 15 seconds)
+  local auth_url=""
+  waited=0
+  while [[ -z "$auth_url" && $waited -lt 15 ]]; do
+    sleep 1
+    ((waited++)) || true
+    auth_url=$(grep -o 'http[s]*://accounts.google.com[^ ]*' "$rclone_out" 2>/dev/null | head -1 || true)
+  done
+
+  if [[ -n "$auth_url" ]]; then
+    echo "   $auth_url"
+  else
+    echo "   (waiting for rclone to generate auth URL...)"
+    echo "   Check rclone output: $rclone_out"
+  fi
+
+  echo ""
+  echo "⏳ Waiting for authorization (timeout: ${SYNC_AUTH_TIMEOUT}s)..."
+
+  # Wait for rclone to finish (user completes auth)
+  wait "$rclone_pid" 2>/dev/null
+  local rclone_exit=$?
+  rclone_pid=""
+
+  # Kill timeout watcher
+  kill "$timeout_pid" 2>/dev/null || true
+
+  # Kill ngrok immediately
+  if [[ -n "$ngrok_pid" ]]; then
+    kill "$ngrok_pid" 2>/dev/null || true
+    wait "$ngrok_pid" 2>/dev/null || true
+    ngrok_pid=""
+  fi
+
+  echo "🔒 Tunnel closed."
+
+  if [[ $rclone_exit -ne 0 ]]; then
+    echo "❌ Authorization failed or timed out."
+    cat "$rclone_out"
+    rm -f "$rclone_out"
+    return 1
+  fi
+
+  # Extract token from rclone output
+  local token
+  token=$(sed -n '/^{/,/^}/p' "$rclone_out" | head -20)
+  rm -f "$rclone_out"
+
+  if [[ -z "$token" ]]; then
+    echo "❌ Could not extract token from rclone output."
+    return 1
+  fi
+
+  echo "✅ Authorization successful!"
+  echo ""
+
+  # Configure rclone remote with the token
+  rclone config create gdrive drive config_is_local=false config_token="$token" > /dev/null 2>&1
+
+  echo "✅ rclone remote 'gdrive' configured."
+  echo ""
+
+  # Create default .sync-config if it doesn't exist
+  if [[ ! -f "$CLAW_DRIVE_SYNC_CONFIG" ]]; then
+    cat > "$CLAW_DRIVE_SYNC_CONFIG" <<EOF
+backend: google-drive
+remote: gdrive:claw-drive
+exclude:
+  - identity/
+  - .hashes
+EOF
+    echo "✅ Created $CLAW_DRIVE_SYNC_CONFIG"
+  fi
+
+  echo ""
+  echo "🎉 Google Drive sync is ready!"
+  echo "   Run: claw-drive sync start"
+
+  # Reset trap
+  trap - EXIT
+}
 
 # Check sync prerequisites
 sync_setup() {

@@ -76,6 +76,7 @@ The CLI is the interface agents use under the hood. All commands support `--json
 | `claw-drive list` | List all indexed files |
 | `claw-drive tags` | List all tags with usage counts |
 | `claw-drive status` | Show drive status (files, size, sync) |
+| `claw-drive sync auth` | Authorize Google Drive (one-time, ngrok tunnel) |
 | `claw-drive sync setup` | Check sync dependencies and config |
 | `claw-drive sync start` | Start background sync daemon |
 | `claw-drive sync stop` | Stop sync daemon |
@@ -89,10 +90,12 @@ Optional real-time sync to Google Drive (or any rclone backend):
 
 ```bash
 # Install dependencies
-brew install rclone fswatch
-rclone config  # set up remote
+brew install rclone fswatch ngrok
 
-# Configure
+# Authorize Google Drive (agent sends you a link to click)
+claw-drive sync auth
+
+# Or configure manually
 cat > ~/claw-drive/.sync-config <<EOF
 backend: google-drive
 remote: gdrive:claw-drive
