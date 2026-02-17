@@ -1,9 +1,9 @@
 ---
-name: claw-files
-description: "Claw Files — personal file vault for OpenClaw. Auto-categorize incoming files, maintain a searchable INDEX.md, and retrieve on request. Use when receiving files to store, or when asked to find/retrieve a previously stored file."
+name: claw-drive
+description: "Claw Drive — personal file vault for OpenClaw. Auto-categorize incoming files, maintain a searchable INDEX.md, and retrieve on request. Use when receiving files to store, or when asked to find/retrieve a previously stored file."
 ---
 
-# Vault
+# Claw Drive
 
 Organize and retrieve personal files with auto-categorization and a searchable index.
 
