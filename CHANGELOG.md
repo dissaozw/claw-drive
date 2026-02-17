@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-02-17
+
+### Added
+- `--name` flag for `store` command — specify clean filenames instead of preserving ugly originals
+- `insurance` category (policies, ID cards, claims, coverage docs)
+- Migration section in README with full workflow documentation
+- Test for `--name` flag (37 tests total)
+
+### Fixed
+- Test suite no longer clobbers `~/.config/claw-drive/config` (redirects to temp config via env var)
+- `sync status` daemon detection uses `launchctl list <name>` directly instead of grep
+- SKILL.md rewritten to reference CLI commands instead of manual cp/hash/index workflow
+- Stale `claw-drive-sync` references updated to `claw-drive sync <subcommand>`
+
 ## [0.1.0] - 2026-02-17
 
 ### Added
