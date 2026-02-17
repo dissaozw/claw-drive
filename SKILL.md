@@ -12,13 +12,13 @@ Organize and retrieve personal files with auto-categorization and a searchable i
 Create the vault directory structure:
 
 ```bash
-mkdir -p ~/vault/{documents,finance,medical,travel,identity,receipts,contracts,photos,misc}
+mkdir -p ~/claw-drive/{documents,finance,medical,travel,identity,receipts,contracts,photos,misc}
 ```
 
-Create `~/vault/INDEX.md`:
+Create `~/claw-drive/INDEX.md`:
 
 ```markdown
-# 📁 Vault — Personal File Index
+# 📁 Claw Drive — Personal File Index
 
 ## Directory Structure
 - **documents/** — general docs, letters, forms
@@ -40,7 +40,7 @@ Create `~/vault/INDEX.md`:
 *Last updated: YYYY-MM-DD*
 ```
 
-Override the vault path in `TOOLS.md` if not using `~/vault/`.
+Override the path in `TOOLS.md` if not using `~/claw-drive/`.
 
 ## Workflow
 
@@ -50,9 +50,9 @@ When receiving a file (email attachment, Telegram upload, etc.):
 
 1. **Classify** — determine the best category from the directory structure
 2. **Name** — give it a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
-3. **Copy** — `cp <source> ~/vault/<category>/<descriptive-name>`
+3. **Copy** — `cp <source> ~/claw-drive/<category>/<descriptive-name>`
 4. **Tag** — assign 1-5 relevant tags (see Tagging below)
-5. **Index** — append a row to `~/vault/INDEX.md`:
+5. **Index** — append a row to `~/claw-drive/INDEX.md`:
    ```
    | YYYY-MM-DD | category/filename | Brief description | tag1, tag2 | Source |
    ```
@@ -112,14 +112,14 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 Before storing a file, check for duplicates:
 
 1. **Hash** — compute SHA-256: `shasum -a 256 <file>`
-2. **Check** — search `~/vault/.hashes` for a match
+2. **Check** — search `~/claw-drive/.hashes` for a match
 3. **If duplicate** — tell the user the file already exists at the original path. Don't store again.
-4. **If new** — store normally, then append to `~/vault/.hashes`:
+4. **If new** — store normally, then append to `~/claw-drive/.hashes`:
    ```
    <sha256>  <category/filename>
    ```
 
-Create `~/vault/.hashes` on first use if it doesn't exist.
+Create `~/claw-drive/.hashes` on first use if it doesn't exist.
 
 **Note:** Dedup is content-based (hash), not name-based. Same file with different names = duplicate. Different files with same name = both stored.
 
@@ -128,4 +128,4 @@ Create `~/vault/.hashes` on first use if it doesn't exist.
 - Always update INDEX.md when adding files — it's the single source of truth
 - For sensitive files (identity/), note that in the index but don't describe contents in detail
 - PDF text extraction: `uv run --with pymupdf python3 -c "import pymupdf; ..."`
-- The vault is local-only — don't sync sensitive categories to cloud storage
+- Claw Drive is local-only — don't sync sensitive categories to cloud storage

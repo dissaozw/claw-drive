@@ -28,10 +28,10 @@ openclaw gateway restart
 Create the vault directory:
 
 ```bash
-mkdir -p ~/vault/{documents,finance,medical,travel,identity,receipts,contracts,photos,misc}
+mkdir -p ~/claw-drive/{documents,finance,medical,travel,identity,receipts,contracts,photos,misc}
 ```
 
-The skill will create `~/vault/INDEX.md` on first use if it doesn't exist.
+The skill will create `~/claw-drive/INDEX.md` on first use if it doesn't exist.
 
 ## Categories
 
