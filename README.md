@@ -16,51 +16,57 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 - 🧬 **Content-aware dedup** — SHA-256 hash check prevents storing the same file twice
 - ☁️ **Google Drive sync** — optional real-time backup via fswatch + rclone
 - 🔒 **Privacy-first** — local-first by default, sensitive categories excluded from sync
-- 🤖 **AI + CLI** — works as an [OpenClaw](https://github.com/openclaw/openclaw) skill or standalone CLI
+- 🤖 **AI-native** — designed for [OpenClaw](https://github.com/openclaw/openclaw) agents, with a CLI under the hood
 
 ## Install
 
-### From source
-
 ```bash
-git clone git@github.com:dissaozw/claw-drive.git
-cd claw-drive
-make install
-```
-
-### Initialize
-
-```bash
+git clone git@github.com:dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive
+cd ~/.openclaw/skills/claw-drive && make install
 claw-drive init
 ```
 
-Creates `~/claw-drive/` with category folders and INDEX.md.
+## Usage
 
-## Quick Start
+Claw Drive is designed to be used through your AI agent. You don't organize files — your agent does.
 
-```bash
-# Store a file with category, description, and tags
-claw-drive store invoice.pdf \
-  --category finance \
-  --desc "Q4 2025 consulting invoice" \
-  --tags "finance, invoice, consulting" \
-  --source email
+### Storing files
 
-# Search by any field
-claw-drive search "consulting"
-claw-drive search "invoice"
+Send a file to your agent (Telegram, email, etc.) and it handles everything:
 
-# List all files
-claw-drive list
+1. **Categorizes** the file into the right folder
+2. **Names** it with a descriptive, date-stamped filename
+3. **Checks for duplicates** by content hash
+4. **Tags** it for cross-category search
+5. **Indexes** it in INDEX.md
+6. **Reports** back what it did
 
-# List all tags with usage counts
-claw-drive tags
+> 📎 *"Here's Sorbet's vet invoice from today"*
+>
+> ✅ Stored: `medical/sorbet/sorbet-vet-invoice-2026-02-15.pdf`
+> Tags: medical, invoice, sorbet, emergency
+> Source: Telegram
 
-# Show drive status
-claw-drive status
-```
+### Retrieving files
 
-## Commands
+Just ask in natural language:
+
+> *"Find Sorbet's medical records"*
+> *"Show me all invoices from January"*
+> *"Do I have a copy of my W-2?"*
+
+The agent searches INDEX.md by description, tags, path, and date — then delivers the file.
+
+### What you never have to do
+
+- Pick a folder
+- Think of a filename
+- Remember where you put something
+- Manually organize anything
+
+## CLI Reference
+
+The CLI is the interface agents use under the hood. All commands support `--json` for machine-readable output.
 
 | Command | Description |
 |---------|-------------|
@@ -76,8 +82,6 @@ claw-drive status
 | `claw-drive sync push` | Manual one-shot sync |
 | `claw-drive sync status` | Show sync daemon state |
 | `claw-drive version` | Show version |
-
-All commands support `--json` for machine-readable output.
 
 ## Sync
 
@@ -109,13 +113,15 @@ See [docs/sync.md](docs/sync.md) for details.
 ## Architecture
 
 ```
-You → claw-drive CLI (or OpenClaw agent)
-            │
-      ~/claw-drive/           ← local, always the source of truth
-            │
-      fswatch + rclone        ← optional real-time sync
-            │
-      Google Drive             ← cloud backup + cross-device access
+You ← natural language → AI Agent (OpenClaw)
+                              │
+                        claw-drive CLI
+                              │
+                        ~/claw-drive/        ← local, source of truth
+                              │
+                        fswatch + rclone     ← optional real-time sync
+                              │
+                        Google Drive          ← cloud backup
 ```
 
 ## Categories
