@@ -82,7 +82,7 @@ The CLI is the interface agents use under the hood. All commands support `--json
 | Command | Description |
 |---------|-------------|
 | `claw-drive init` | Initialize drive directory and INDEX.md |
-| `claw-drive store <file> [opts]` | Store a file with categorization, tags, and dedup |
+| `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, and optional rename (`--name`) |
 | `claw-drive search <query>` | Search files by description, tags, or path |
 | `claw-drive list` | List all indexed files |
 | `claw-drive tags` | List all tags with usage counts |
@@ -93,6 +93,9 @@ The CLI is the interface agents use under the hood. All commands support `--json
 | `claw-drive sync stop` | Stop sync daemon |
 | `claw-drive sync push` | Manual one-shot sync |
 | `claw-drive sync status` | Show sync daemon state |
+| `claw-drive migrate scan <dir> [plan.json]` | Scan a directory into a migration plan |
+| `claw-drive migrate summary [plan.json]` | Show migration plan breakdown |
+| `claw-drive migrate apply [plan.json] [--dry-run]` | Execute migration plan |
 | `claw-drive version` | Show version |
 
 ## Sync
@@ -100,6 +103,28 @@ The CLI is the interface agents use under the hood. All commands support `--json
 Optional real-time sync to Google Drive (or any rclone backend). Files sync within seconds of any change. Sensitive directories stay local-only.
 
 See [docs/sync.md](docs/sync.md) for details.
+
+## Migration
+
+Got a messy folder full of unsorted files? Claw Drive's migration workflow handles it:
+
+```bash
+# 1. Scan the source directory
+claw-drive migrate scan ~/messy-folder migration-plan.json
+
+# 2. AI agent classifies each file (fills in category, name, tags, description)
+
+# 3. Review the plan
+claw-drive migrate summary migration-plan.json
+
+# 4. Dry run first
+claw-drive migrate apply migration-plan.json --dry-run
+
+# 5. Execute
+claw-drive migrate apply migration-plan.json
+```
+
+The scan outputs a JSON plan with file metadata (path, size, mime type, extension). The agent fills in classification fields, then `apply` copies files into Claw Drive with full dedup, indexing, and tagging.
 
 ## Architecture
 
@@ -121,6 +146,7 @@ You ← natural language → AI Agent (OpenClaw)
 |----------|---------|
 | `documents/` | General docs, letters, forms, manuals |
 | `finance/` | Tax returns, bank statements, pay stubs |
+| `insurance/` | Policies, ID cards, claims, coverage docs |
 | `medical/` | Health records, prescriptions, pet health |
 | `travel/` | Boarding passes, itineraries, visas |
 | `identity/` | ID scans, certificates (⚠️ sensitive — excluded from sync) |
