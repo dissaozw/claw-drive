@@ -15,14 +15,16 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 - 🔍 **Natural language retrieval** — "find Sorbet's vet records" just works
 - 🧬 **Content-aware dedup** — SHA-256 hash check prevents storing the same file twice
 - ☁️ **Google Drive sync** — optional real-time backup via fswatch + rclone
-- 🔒 **Privacy-first** — local-first by default, sensitive categories excluded from sync
+- 🔒 **Privacy-first** — local-first by default, sensitive categories excluded from sync, default-safe content handling
+- 🛡️ **Sensitive file protection** — agent asks before reading contents; defaults to private if no reply
 - 🤖 **AI-native** — designed for [OpenClaw](https://github.com/openclaw/openclaw) agents, with a CLI under the hood
 
 ## Install
 
 ```bash
 # 1. Install dependencies
-brew install rclone fswatch
+brew install rclone fswatch   # optional, for sync only
+# pymupdf for PDF extraction — runs via uv, no global install needed
 
 # 2. Clone and install
 git clone git@github.com:dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive
@@ -45,18 +47,26 @@ Claw Drive is designed to be used through your AI agent. You don't organize file
 
 Send a file to your agent (Telegram, email, etc.) and it handles everything:
 
-1. **Categorizes** the file into the right folder
-2. **Names** it with a descriptive, date-stamped filename
-3. **Checks for duplicates** by content hash
-4. **Tags** it for cross-category search
-5. **Indexes** it in INDEX.md
-6. **Reports** back what it did
+1. **Asks about privacy** — "Should I read the contents, or keep it private?"
+2. **Extracts content** (if permitted) — reads PDFs, images, docs to pull out key details
+3. **Categorizes** the file into the right folder
+4. **Names** it with a descriptive, date-stamped filename
+5. **Checks for duplicates** by content hash
+6. **Tags** it for cross-category search with specific identifiers
+7. **Indexes** it in INDEX.md with a rich, searchable description
+8. **Reports** back what it did
 
-> 📎 *"Here's Sorbet's vet invoice from today"*
+> 📎 *"Here's my auto insurance card"*
 >
-> ✅ Stored: `medical/sorbet/sorbet-vet-invoice-2026-02-15.pdf`
-> Tags: medical, invoice, sorbet, emergency
-> Source: Telegram
+> 🔒 *"Should I read the contents to index it better, or keep it private?"*
+>
+> 👤 *"Go ahead"*
+>
+> ✅ Stored: `insurance/farmers-auto-id-cards-52561-34-41.pdf`
+> Policy 525613441 · 2024 Mercedes-Benz AMG GLC 43 · Effective 1/21/2026–7/21/2026
+> Tags: insurance, auto, farmers, policy-525613441, mercedes-benz, california
+
+If you don't reply or say it's sensitive, the agent classifies by filename only and asks for a brief description if needed. Your data is never read without consent.
 
 ### Retrieving files
 
@@ -154,6 +164,19 @@ You ← natural language → AI Agent (OpenClaw)
 | `contracts/` | Leases, employment, legal agreements |
 | `photos/` | Personal photos, document scans |
 | `misc/` | Anything that doesn't fit above |
+
+## Privacy & Sensitive Files
+
+Claw Drive defaults to **safe**. The agent never reads file contents without asking first.
+
+| Scenario | Behavior |
+|----------|----------|
+| User says "go ahead" | Full content extraction → rich description + specific tags |
+| User says "keep it private" | Filename-only classification, asks for brief description |
+| User doesn't reply | **Defaults to sensitive** — no content reading |
+| File goes to `identity/` | **Always sensitive** — contents never read, excluded from sync |
+
+Sensitive files are still stored, deduplicated, tagged, and indexed — they just get descriptions from filenames and user input instead of content extraction. Nothing sensitive ends up in conversation logs.
 
 ## Documentation
 
