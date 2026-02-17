@@ -1,6 +1,6 @@
 ---
 name: claw-drive
-description: "Claw Drive — personal file vault for OpenClaw. Auto-categorize incoming files, maintain a searchable INDEX.md, and retrieve on request. Use when receiving files to store, or when asked to find/retrieve a previously stored file."
+description: "Claw Drive — AI-managed personal drive for OpenClaw. Auto-categorize, tag, deduplicate, and retrieve files with natural language. Backed by Google Drive for cloud sync and security. Use when receiving files to store, or when asked to find/retrieve a previously stored file."
 ---
 
 # Claw Drive
