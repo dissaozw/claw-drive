@@ -107,6 +107,22 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 
 **When in doubt:** `misc/` is fine. Better to store it somewhere than not at all.
 
+### Deduplication
+
+Before storing a file, check for duplicates:
+
+1. **Hash** — compute SHA-256: `shasum -a 256 <file>`
+2. **Check** — search `~/vault/.hashes` for a match
+3. **If duplicate** — tell the user the file already exists at the original path. Don't store again.
+4. **If new** — store normally, then append to `~/vault/.hashes`:
+   ```
+   <sha256>  <category/filename>
+   ```
+
+Create `~/vault/.hashes` on first use if it doesn't exist.
+
+**Note:** Dedup is content-based (hash), not name-based. Same file with different names = duplicate. Different files with same name = both stored.
+
 ## Tips
 
 - Always update INDEX.md when adding files — it's the single source of truth
