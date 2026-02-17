@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 # lib/config.sh — Configuration management for Claw Drive
 
-CLAW_DRIVE_DIR="${CLAW_DRIVE_DIR:-$HOME/claw-drive}"
+CLAW_DRIVE_CONFIG_FILE="$HOME/.config/claw-drive/config"
+
+# Load saved drive path from config, env override takes priority
+if [[ -n "${CLAW_DRIVE_DIR:-}" ]]; then
+  : # env override
+elif [[ -f "$CLAW_DRIVE_CONFIG_FILE" ]]; then
+  CLAW_DRIVE_DIR=$(cat "$CLAW_DRIVE_CONFIG_FILE")
+else
+  CLAW_DRIVE_DIR="$HOME/claw-drive"
+fi
 CLAW_DRIVE_INDEX="$CLAW_DRIVE_DIR/INDEX.md"
 CLAW_DRIVE_HASHES="$CLAW_DRIVE_DIR/.hashes"
 CLAW_DRIVE_SYNC_CONFIG="$CLAW_DRIVE_DIR/.sync-config"

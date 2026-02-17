@@ -27,6 +27,26 @@ source "$CLAW_DRIVE_ROOT/lib/migrate.sh"
 # --- Commands ---
 
 cmd_init() {
+  # Accept optional path argument
+  if [[ -n "${1:-}" ]]; then
+    CLAW_DRIVE_DIR="$1"
+  fi
+
+  # Resolve to absolute path
+  if [[ "$CLAW_DRIVE_DIR" != /* ]]; then
+    CLAW_DRIVE_DIR="$(cd "$(dirname "$CLAW_DRIVE_DIR")" 2>/dev/null && pwd)/$(basename "$CLAW_DRIVE_DIR")"
+  fi
+
+  # Update all derived paths
+  CLAW_DRIVE_INDEX="$CLAW_DRIVE_DIR/INDEX.md"
+  CLAW_DRIVE_HASHES="$CLAW_DRIVE_DIR/.hashes"
+  CLAW_DRIVE_SYNC_CONFIG="$CLAW_DRIVE_DIR/.sync-config"
+  CLAW_DRIVE_SYNC_STATE="$CLAW_DRIVE_DIR/.sync-state"
+
+  # Save path to config
+  mkdir -p "$(dirname "$CLAW_DRIVE_CONFIG_FILE")"
+  echo "$CLAW_DRIVE_DIR" > "$CLAW_DRIVE_CONFIG_FILE"
+
   echo "🗄️  Initializing Claw Drive at $CLAW_DRIVE_DIR"
   echo ""
 
@@ -281,7 +301,7 @@ cmd_help() {
 Usage: claw-drive <command> [options]
 
 Commands:
-  init                          Initialize drive directory
+  init [path]                   Initialize drive at path (default: ~/claw-drive)
   store <file> [options]        Store a file with categorization
   search <query> [--json]       Search files by description, tags, or path
   list [--json]                 List all indexed files
