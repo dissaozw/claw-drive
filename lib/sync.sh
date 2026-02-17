@@ -22,21 +22,83 @@ sync_auth() {
   fi
 
   echo "Starting rclone authorization..."
-  echo "A browser window will open on this machine for Google sign-in."
   echo ""
 
-  rclone authorize "drive"
-  local exit_code=$?
+  # Start rclone in background so we can capture the token
+  local rclone_out
+  rclone_out=$(mktemp)
 
-  if [[ $exit_code -ne 0 ]]; then
-    echo "❌ Authorization failed."
+  rclone authorize "drive" --auth-no-open-browser > "$rclone_out" 2>&1 &
+  local rclone_pid=$!
+
+  # Wait for auth URL
+  local waited=0
+  local auth_url=""
+  while [[ $waited -lt 10 ]]; do
+    sleep 1
+    ((waited++)) || true
+    auth_url=$(grep -o 'http://127.0.0.1:53682/auth[?][^ ]*' "$rclone_out" 2>/dev/null | head -1 || true)
+    [[ -n "$auth_url" ]] && break
+  done
+
+  if [[ -z "$auth_url" ]]; then
+    echo "❌ rclone failed to start auth server."
+    cat "$rclone_out"
+    rm -f "$rclone_out"
+    kill "$rclone_pid" 2>/dev/null
     return 1
   fi
 
+  # Try to open browser on the machine
+  open "$auth_url" 2>/dev/null || true
+
+  echo "🌐 Auth URL: $auth_url"
   echo ""
+  echo "⏳ Waiting for authorization..."
+  echo "   Complete sign-in in the browser on this machine."
+
+  # Wait for rclone to finish
+  wait "$rclone_pid" 2>/dev/null
+  local exit_code=$?
+
+  if [[ $exit_code -ne 0 ]]; then
+    echo "❌ Authorization failed or timed out."
+    cat "$rclone_out"
+    rm -f "$rclone_out"
+    return 1
+  fi
+
+  # Extract token
+  local token
+  token=$(sed -n '/^{/,/^}/p' "$rclone_out" | head -20)
+  rm -f "$rclone_out"
+
+  if [[ -z "$token" ]]; then
+    echo "❌ Could not extract token."
+    return 1
+  fi
+
+  # Configure rclone remote
+  rclone config create gdrive drive config_is_local=false config_token="$token" > /dev/null 2>&1
+
   echo "✅ Authorization successful!"
-  echo "   Run: rclone config create gdrive drive"
-  echo "   Then: claw-drive sync start"
+  echo "✅ rclone remote 'gdrive' configured."
+
+  # Create default .sync-config
+  if [[ ! -f "$CLAW_DRIVE_SYNC_CONFIG" ]]; then
+    cat > "$CLAW_DRIVE_SYNC_CONFIG" <<EOF
+backend: google-drive
+remote: gdrive:claw-drive
+exclude:
+  - identity/
+  - .hashes
+EOF
+    echo "✅ Created .sync-config"
+  fi
+
+  echo ""
+  echo "🎉 Google Drive sync is ready!"
+  echo "   Run: claw-drive sync start"
 }
 
 # Check sync prerequisites

@@ -131,8 +131,17 @@ Claw Drive can auto-sync to Google Drive (or any rclone-supported backend) via a
 
 ```bash
 brew install rclone fswatch
-rclone config  # set up a remote named "gdrive"
 ```
+
+### Authorization
+
+Run `claw-drive sync auth`. It opens a browser on the machine for Google sign-in.
+
+**Agent behavior during auth:**
+1. Run `claw-drive sync auth` in background
+2. Try the OpenClaw browser tool to click through the Google consent screen
+3. If browser tool is unavailable, send the auth URL to the user and ask them to complete sign-in on the machine (e.g. via Screen Sharing)
+4. Wait for rclone to capture the token
 
 ### Configuration
 
