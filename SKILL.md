@@ -53,7 +53,7 @@ When receiving a file (email attachment, Telegram upload, etc.):
    - Pull out key entities: names, dates, amounts, account/policy numbers, addresses, etc.
 3. **Classify** — determine the best category from the categories table below
 4. **Name** — choose a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
-5. **Describe** — write a rich description using extracted content (or user-provided description for sensitive files). Include key details (dates, amounts, IDs, names) so the file is findable by any relevant search term. Don't be vague — "insurance card" is bad, "Farmers Insurance ID cards - 2024 Mercedes-Benz AMG GLC 43, Policy 525613441, effective 1/21/2026–7/21/2026" is good.
+5. **Describe** — write a rich description using extracted content (or user-provided description for sensitive files). Include key details (dates, amounts, IDs, names) so the file is findable by any relevant search term. Don't be vague — "insurance card" is bad, "Acme Insurance ID cards - 2024 Honda Civic, Policy ****3441, effective 1/21/2026–7/21/2026" is good.
 6. **Tag** — include specific tags from extracted content (model names, policy numbers, VINs, entity names) in addition to category tags
 7. **Store** — run the CLI:
    ```bash
@@ -87,15 +87,15 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 
 **Examples:**
 ```bash
-# Insurance PDF — after extracting: policy 525613441, 2024 MB GLC 43, VIN, dates, agent
-claw-drive store file.pdf -c insurance -n "farmers-auto-id-cards-52561-34-41.pdf" \
-  -d "Farmers Insurance ID cards - 2024 Mercedes-Benz AMG GLC 43, VIN W1NKM8HB3RF183530, Policy 525613441, effective 1/21/2026–7/21/2026, agent Jiaying Su (650) 863-2544" \
-  -t "insurance, auto, farmers, id-card, policy-525613441, mercedes-benz, glc-43, california" -s telegram
+# Insurance PDF — after extracting: policy number, vehicle, VIN, dates, agent
+claw-drive store file.pdf -c insurance -n "acme-auto-id-cards.pdf" \
+  -d "Acme Insurance ID cards - 2024 Honda Civic, VIN 1HGBH41JXMN109186, Policy ****3441, effective 1/21/2026–7/21/2026, agent Jane Smith (555) 123-4567" \
+  -t "insurance, auto, acme, id-card, honda-civic, california" -s telegram
 
 # Vet invoice — after extracting: clinic, amount, diagnosis, pet name
 claw-drive store invoice.pdf -c medical -n "sorbet-vet-invoice-2026-02-15.pdf" \
-  -d "VEG emergency visit invoice - Sorbet, $1,234.56, bronchial pattern diagnosis, prednisolone prescribed" \
-  -t "medical, invoice, sorbet, emergency, vet" -s email
+  -d "VEG emergency visit invoice - Max (cat), $1,234.56, bronchial pattern diagnosis, prednisolone prescribed" \
+  -t "medical, invoice, max, emergency, vet" -s email
 
 # W-2 — after extracting: employer, tax year, wages
 claw-drive store w2.pdf -c finance -n "w2-2025.pdf" \

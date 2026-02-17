@@ -14,7 +14,7 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 
 - 📂 **Auto-categorize** — files sorted into the right folder without you thinking about it
 - 🏷️ **Smart tagging** — cross-category search (a vet invoice is both `medical` and `invoice`)
-- 🔍 **Natural language retrieval** — "find Sorbet's vet records" just works
+- 🔍 **Natural language retrieval** — "find my cat's vet records" just works
 - 🧬 **Content-aware dedup** — SHA-256 hash check prevents storing the same file twice
 - ☁️ **Google Drive sync** — optional real-time backup via fswatch + rclone
 - 🔒 **Privacy-first** — local-first by default, sensitive categories excluded from sync, default-safe content handling
@@ -64,9 +64,9 @@ Send a file to your agent (Telegram, email, etc.) and it handles everything:
 >
 > 👤 *"Go ahead"*
 >
-> ✅ Stored: `insurance/farmers-auto-id-cards-52561-34-41.pdf`
-> Policy 525613441 · 2024 Mercedes-Benz AMG GLC 43 · Effective 1/21/2026–7/21/2026
-> Tags: insurance, auto, farmers, policy-525613441, mercedes-benz, california
+> ✅ Stored: `insurance/acme-auto-id-cards.pdf`
+> Policy ****3441 · 2024 Honda Civic · Effective 1/21/2026–7/21/2026
+> Tags: insurance, auto, acme, honda-civic, california
 
 If you don't reply or say it's sensitive, the agent classifies by filename only and asks for a brief description if needed. Your data is never read without consent.
 
@@ -74,7 +74,7 @@ If you don't reply or say it's sensitive, the agent classifies by filename only 
 
 Just ask in natural language:
 
-> *"Find Sorbet's medical records"*
+> *"Find my cat's medical records"*
 > *"Show me all invoices from January"*
 > *"Do I have a copy of my W-2?"*
 
