@@ -210,7 +210,7 @@ sync_watch_loop() {
 
 # Start the sync daemon via launchd
 sync_start() {
-  if launchctl list 2>/dev/null | grep -q "$CLAW_DRIVE_PLIST_NAME"; then
+  if launchctl list "$CLAW_DRIVE_PLIST_NAME" 2>/dev/null; then
     echo "⚠️  Already running. Use 'claw-drive sync stop' first."
     return 1
   fi
@@ -273,7 +273,7 @@ sync_status() {
   local format="${1:-table}"
 
   local running="false"
-  if launchctl list 2>/dev/null | grep -q "$CLAW_DRIVE_PLIST_NAME"; then
+  if launchctl list "$CLAW_DRIVE_PLIST_NAME" &>/dev/null; then
     running="true"
   fi
 

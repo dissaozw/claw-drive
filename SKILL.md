@@ -9,38 +9,11 @@ Organize and retrieve personal files with auto-categorization and a searchable i
 
 ## Setup
 
-Create the vault directory structure:
-
 ```bash
-mkdir -p ~/claw-drive/{documents,finance,medical,travel,identity,receipts,contracts,photos,misc}
+claw-drive init [path]
 ```
 
-Create `~/claw-drive/INDEX.md`:
-
-```markdown
-# 📁 Claw Drive — Personal File Index
-
-## Directory Structure
-- **documents/** — general docs, letters, forms
-- **finance/** — tax, bank statements, investment docs
-- **medical/** — health records, insurance, prescriptions
-- **travel/** — tickets, itineraries, visas, bookings
-- **identity/** — ID scans, certificates (⚠️ sensitive)
-- **receipts/** — purchase receipts, warranties, invoices
-- **contracts/** — leases, employment, legal agreements
-- **photos/** — personal photos, scans
-- **misc/** — anything that doesn't fit above
-
-## File Index
-
-| Date | Path | Description | Tags | Source |
-|------|------|-------------|------|--------|
-
----
-*Last updated: YYYY-MM-DD*
-```
-
-Override the path in `TOOLS.md` if not using `~/claw-drive/`.
+This creates the directory structure, INDEX.md, and hash ledger. Default path: `~/claw-drive`.
 
 ## Workflow
 
@@ -48,40 +21,43 @@ Override the path in `TOOLS.md` if not using `~/claw-drive/`.
 
 When receiving a file (email attachment, Telegram upload, etc.):
 
-1. **Classify** — determine the best category from the directory structure
-2. **Name** — give it a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
-3. **Copy** — `cp <source> ~/claw-drive/<category>/<descriptive-name>`
-4. **Tag** — assign 1-5 relevant tags (see Tagging below)
-5. **Index** — append a row to `~/claw-drive/INDEX.md`:
+1. **Classify** — determine the best category from the categories table below
+2. **Name** — choose a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
+3. **Store** — run the CLI:
+   ```bash
+   claw-drive store <file> --category <cat> --name "clean-name.ext" --desc "Brief description" --tags "tag1, tag2" --source telegram
    ```
-   | YYYY-MM-DD | category/filename | Brief description | tag1, tag2 | Source |
-   ```
-6. **Report** — tell the user: path, category, tags, and what was indexed
+4. **Report** — tell the user: path, category, tags, and what was indexed
+
+The CLI handles copying, hashing, deduplication, and index updates automatically. If the file is a duplicate, it will be rejected.
+
+The `--name` flag lets you override the original filename (which may be ugly like `file_17---8c1ee63d-...`) with a clean, descriptive name.
 
 ### Retrieving a file
 
 When asked to find a file:
 
-1. **Search INDEX.md** — grep or scan the index table by description, tags, path, or date
-2. **Verify** — confirm the file exists at the listed path
-3. **Deliver** — send via message tool or provide the path
+1. **Search** — `claw-drive search "<query>"` searches descriptions, tags, and paths
+2. **List** — `claw-drive list` shows all indexed files
+3. **Tags** — `claw-drive tags` shows all tags with usage counts
+4. **Deliver** — send via message tool or provide the path
 
 ### Tagging
 
 Tags add cross-category searchability. A file lives in one folder but can have multiple tags.
 
 **Guidelines:**
-- 1-5 tags per file, comma-separated in the Tags column
+- 1-5 tags per file, comma-separated
 - Lowercase, single words or short hyphenated phrases
 - Always include the category name as a tag (e.g. `medical` for files in `medical/`)
 - Add cross-cutting tags for things like: entity names (`sorbet`), document type (`invoice`, `receipt`, `report`), context (`emergency`, `tax-2025`)
-- Reuse existing tags when possible — check INDEX.md before inventing new ones
+- Reuse existing tags when possible — check `claw-drive tags` before inventing new ones
 
 **Examples:**
 ```
-| 2026-02-15 | medical/sorbet-vet-invoice-2026-02-15.pdf | VEG emergency visit invoice | medical, invoice, sorbet, emergency | email |
-| 2026-01-20 | finance/w2-2025.pdf | W-2 tax form 2025 | finance, tax-2025 | email |
-| 2026-02-10 | travel/japan-itinerary-2026-03.pdf | Tokyo trip itinerary | travel, japan | telegram |
+claw-drive store invoice.pdf -c medical -n "sorbet-vet-invoice-2026-02-15.pdf" -d "VEG emergency visit invoice" -t "medical, invoice, sorbet, emergency" -s email
+claw-drive store w2.pdf -c finance -n "w2-2025.pdf" -d "W-2 tax form 2025" -t "finance, tax-2025" -s email
+claw-drive store itinerary.pdf -c travel -n "japan-itinerary-2026-03.pdf" -d "Tokyo trip itinerary" -t "travel, japan" -s telegram
 ```
 
 ### Naming conventions
@@ -97,6 +73,7 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 |----------|---------|
 | documents | General docs, letters, forms, manuals |
 | finance | Tax returns, bank statements, investment docs, pay stubs |
+| insurance | Insurance policies, claims, coverage documents |
 | medical | Health records, lab results, prescriptions, pet health |
 | travel | Boarding passes, itineraries, hotel bookings, visas |
 | identity | Passport scans, birth certs, SSN docs (⚠️ sensitive) |
@@ -106,22 +83,6 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 | misc | Anything that doesn't fit above |
 
 **When in doubt:** `misc/` is fine. Better to store it somewhere than not at all.
-
-### Deduplication
-
-Before storing a file, check for duplicates:
-
-1. **Hash** — compute SHA-256: `shasum -a 256 <file>`
-2. **Check** — search `~/claw-drive/.hashes` for a match
-3. **If duplicate** — tell the user the file already exists at the original path. Don't store again.
-4. **If new** — store normally, then append to `~/claw-drive/.hashes`:
-   ```
-   <sha256>  <category/filename>
-   ```
-
-Create `~/claw-drive/.hashes` on first use if it doesn't exist.
-
-**Note:** Dedup is content-based (hash), not name-based. Same file with different names = duplicate. Different files with same name = both stored.
 
 ## Sync (Optional)
 
@@ -143,39 +104,27 @@ Run `claw-drive sync auth`. It opens a browser on the machine for Google sign-in
 3. If browser tool is unavailable, send the auth URL to the user and ask them to complete sign-in on the machine (e.g. via Screen Sharing)
 4. Wait for rclone to capture the token
 
-### Configuration
-
-Create `~/claw-drive/.sync-config`:
-
-```yaml
-backend: google-drive
-remote: gdrive:claw-drive
-exclude:
-  - identity/
-  - .hashes
-```
-
 ### Commands
 
 ```bash
-claw-drive-sync setup   # verify deps and config
-claw-drive-sync start   # start background daemon (fswatch + rclone)
-claw-drive-sync stop    # stop daemon
-claw-drive-sync push    # manual one-shot sync
-claw-drive-sync status  # show sync status
+claw-drive sync setup   # verify deps and config
+claw-drive sync start   # start background daemon (fswatch + rclone)
+claw-drive sync stop    # stop daemon
+claw-drive sync push    # manual one-shot sync
+claw-drive sync status  # show sync status
 ```
 
-The daemon watches `~/claw-drive/` for file changes and syncs to the remote within seconds. It runs as a launchd service — starts on login, restarts on failure.
+The daemon watches the drive directory for file changes and syncs to the remote within seconds. It runs as a launchd service — starts on login, restarts on failure.
 
 Logs: `~/Library/Logs/claw-drive/sync.log`
 
 ### Per-category privacy
 
-Use the `exclude` list in `.sync-config` to keep sensitive directories local-only. `identity/` is excluded by default in the example above.
+Use the `exclude` list in `.sync-config` to keep sensitive directories local-only. `identity/` is excluded by default.
 
 ## Tips
 
-- Always update INDEX.md when adding files — it's the single source of truth
+- The CLI maintains INDEX.md automatically — don't edit it manually
 - For sensitive files (identity/), note that in the index but don't describe contents in detail
 - PDF text extraction: `uv run --with pymupdf python3 -c "import pymupdf; ..."`
-- Claw Drive is local-only — don't sync sensitive categories to cloud storage
+- Use `claw-drive status` to see file counts, size, and sync status

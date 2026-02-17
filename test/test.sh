@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI="$SCRIPT_DIR/../bin/claw-drive"
 TEST_DIR=$(mktemp -d)
 export CLAW_DRIVE_DIR="$TEST_DIR"
+export CLAW_DRIVE_CONFIG_FILE="$TEST_DIR/.config"
 
 passed=0
 failed=0
@@ -60,6 +61,7 @@ assert ".hashes exists" test -f "$TEST_DIR/.hashes"
 assert "documents/ exists" test -d "$TEST_DIR/documents"
 assert "finance/ exists" test -d "$TEST_DIR/finance"
 assert "identity/ exists" test -d "$TEST_DIR/identity"
+assert "insurance/ exists" test -d "$TEST_DIR/insurance"
 assert "misc/ exists" test -d "$TEST_DIR/misc"
 
 # --- Store ---
@@ -83,6 +85,15 @@ assert_output "duplicate rejected" "duplicate" bash "$CLI" store "$TEST_DIR/test
 echo "different content" > "$TEST_DIR/testfile2.txt"
 assert "different file stores fine" bash "$CLI" store "$TEST_DIR/testfile2.txt" \
   --category finance --desc "Finance doc" --tags "finance, test" --source email
+
+# --- Store with --name ---
+echo ""
+echo "Store --name:"
+echo "ugly content" > "$TEST_DIR/file_17---8c1ee63d.txt"
+assert "store with --name" bash "$CLI" store "$TEST_DIR/file_17---8c1ee63d.txt" \
+  --category documents --desc "Clean named file" --tags "test" --name "custom-name.txt"
+assert "custom name file exists" test -f "$TEST_DIR/documents/custom-name.txt"
+assert_output "custom name in INDEX" "custom-name.txt" grep "custom-name" "$TEST_DIR/INDEX.md"
 
 # --- Search ---
 echo ""

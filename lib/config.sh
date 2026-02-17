@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # lib/config.sh — Configuration management for Claw Drive
 
-CLAW_DRIVE_CONFIG_FILE="$HOME/.config/claw-drive/config"
+CLAW_DRIVE_CONFIG_FILE="${CLAW_DRIVE_CONFIG_FILE:-$HOME/.config/claw-drive/config}"
 
 # Load saved drive path from config, env override takes priority
 if [[ -n "${CLAW_DRIVE_DIR:-}" ]]; then
@@ -20,7 +20,7 @@ CLAW_DRIVE_PLIST_NAME="com.claw-drive.sync"
 CLAW_DRIVE_PLIST_PATH="$HOME/Library/LaunchAgents/$CLAW_DRIVE_PLIST_NAME.plist"
 
 CLAW_DRIVE_CATEGORIES=(
-  documents finance medical travel identity
+  documents finance insurance medical travel identity
   receipts contracts photos misc
 )
 

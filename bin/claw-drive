@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-CLAW_DRIVE_VERSION="0.1.0"
+CLAW_DRIVE_VERSION="0.2.0"
 # Resolve symlinks to find the real script location
 CLAW_DRIVE_SCRIPT="${BASH_SOURCE[0]}"
 while [[ -L "$CLAW_DRIVE_SCRIPT" ]]; do
@@ -62,7 +62,8 @@ cmd_init() {
 ## Directory Structure
 - **documents/** — general docs, letters, forms
 - **finance/** — tax, bank statements, investment docs
-- **medical/** — health records, insurance, prescriptions
+- **insurance/** — insurance policies, claims, coverage docs
+- **medical/** — health records, prescriptions
 - **travel/** — tickets, itineraries, visas, bookings
 - **identity/** — ID scans, certificates (⚠️ sensitive)
 - **receipts/** — purchase receipts, warranties, invoices
@@ -98,13 +99,14 @@ cmd_store() {
       --desc|-d) description="$2"; shift 2 ;;
       --tags|-t) tags="$2"; shift 2 ;;
       --source|-s) source_name="$2"; shift 2 ;;
+      --name|-n) local custom_name="$2"; shift 2 ;;
       --json) local json_output=true; shift ;;
       *) file="$1"; shift ;;
     esac
   done
 
   if [[ -z "$file" || ! -f "$file" ]]; then
-    echo "❌ Usage: claw-drive store <file> --category <cat> --desc <description> [--tags <tags>] [--source <source>]"
+    echo "❌ Usage: claw-drive store <file> --category <cat> --desc <description> [--name <name>] [--tags <tags>] [--source <source>]"
     return 1
   fi
 
@@ -129,7 +131,7 @@ cmd_store() {
 
   # Build filename
   local basename
-  basename=$(basename "$file")
+  basename="${custom_name:-$(basename "$file")}"
   local dest="$CLAW_DRIVE_DIR/$category/$basename"
 
   # Copy file
@@ -316,6 +318,7 @@ Commands:
 Store options:
   --category, -c <category>     Target category (required)
   --desc, -d <description>      File description (required)
+  --name, -n <filename>         Custom filename (default: original name)
   --tags, -t <tag1,tag2>        Comma-separated tags
   --source, -s <source>         Source (email, telegram, manual)
   --json                        JSON output
