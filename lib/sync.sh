@@ -14,8 +14,8 @@ sync_auth() {
     echo "❌ rclone not found. Install: brew install rclone"
     return 1
   fi
-  if ! command -v ngrok &>/dev/null; then
-    echo "❌ ngrok not found. Install: brew install ngrok"
+  if ! command -v cloudflared &>/dev/null; then
+    echo "❌ cloudflared not found. Install: brew install cloudflared"
     return 1
   fi
 
@@ -27,47 +27,48 @@ sync_auth() {
     return 1
   fi
 
-  local ngrok_pid=""
+  local tunnel_pid=""
   local rclone_pid=""
-  local ngrok_log
-  ngrok_log=$(mktemp)
+  local tunnel_log
+  tunnel_log=$(mktemp)
 
-  # Cleanup function — always kill ngrok and rclone
+  # Cleanup function — always kill tunnel and rclone
   _sync_auth_cleanup() {
-    [[ -n "$ngrok_pid" ]] && kill "$ngrok_pid" 2>/dev/null && wait "$ngrok_pid" 2>/dev/null
+    [[ -n "$tunnel_pid" ]] && kill "$tunnel_pid" 2>/dev/null && wait "$tunnel_pid" 2>/dev/null
     [[ -n "$rclone_pid" ]] && kill "$rclone_pid" 2>/dev/null && wait "$rclone_pid" 2>/dev/null
-    rm -f "$ngrok_log"
+    rm -f "$tunnel_log"
     echo ""
     echo "🔒 Tunnel closed."
   }
   trap _sync_auth_cleanup EXIT
 
-  # Start ngrok tunnel to rclone's OAuth callback port
+  # Start cloudflared tunnel to rclone's OAuth callback port
   echo "🔗 Starting secure tunnel..."
-  ngrok http 53682 --log=stdout --log-format=json > "$ngrok_log" 2>&1 &
-  ngrok_pid=$!
+  cloudflared tunnel --url http://localhost:53682 > "$tunnel_log" 2>&1 &
+  tunnel_pid=$!
 
-  # Wait for ngrok to provide the public URL (max 10 seconds)
-  local ngrok_url=""
+  # Wait for cloudflared to provide the public URL (max 15 seconds)
+  local tunnel_url=""
   local waited=0
-  while [[ -z "$ngrok_url" && $waited -lt 10 ]]; do
+  while [[ -z "$tunnel_url" && $waited -lt 15 ]]; do
     sleep 1
     ((waited++)) || true
-    ngrok_url=$(grep -o '"url":"https://[^"]*"' "$ngrok_log" 2>/dev/null | head -1 | sed 's/"url":"//;s/"//' || true)
+    tunnel_url=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$tunnel_log" 2>/dev/null | head -1 || true)
   done
 
-  if [[ -z "$ngrok_url" ]]; then
-    echo "❌ Failed to start ngrok tunnel."
+  if [[ -z "$tunnel_url" ]]; then
+    echo "❌ Failed to start cloudflared tunnel."
+    cat "$tunnel_log"
     return 1
   fi
 
-  echo "✅ Tunnel ready: $ngrok_url"
+  echo "✅ Tunnel ready: $tunnel_url"
   echo ""
 
-  # Start safety timeout — kill ngrok after SYNC_AUTH_TIMEOUT seconds
+  # Start safety timeout — kill tunnel after SYNC_AUTH_TIMEOUT seconds
   (
     sleep "$SYNC_AUTH_TIMEOUT"
-    kill "$ngrok_pid" 2>/dev/null
+    kill "$tunnel_pid" 2>/dev/null
     echo ""
     echo "⏰ Auth timeout (${SYNC_AUTH_TIMEOUT}s). Tunnel killed for safety."
   ) &
@@ -81,7 +82,7 @@ sync_auth() {
   # Run rclone authorize and capture output
   local rclone_out
   rclone_out=$(mktemp)
-  RCLONE_OAUTH_CALLBACK_URL="$ngrok_url" rclone authorize "drive" > "$rclone_out" 2>&1 &
+  RCLONE_OAUTH_CALLBACK_URL="$tunnel_url" rclone authorize "drive" > "$rclone_out" 2>&1 &
   rclone_pid=$!
 
   # Wait for rclone to print the auth URL (max 15 seconds)
@@ -111,11 +112,11 @@ sync_auth() {
   # Kill timeout watcher
   kill "$timeout_pid" 2>/dev/null || true
 
-  # Kill ngrok immediately
-  if [[ -n "$ngrok_pid" ]]; then
-    kill "$ngrok_pid" 2>/dev/null || true
-    wait "$ngrok_pid" 2>/dev/null || true
-    ngrok_pid=""
+  # Kill tunnel immediately
+  if [[ -n "$tunnel_pid" ]]; then
+    kill "$tunnel_pid" 2>/dev/null || true
+    wait "$tunnel_pid" 2>/dev/null || true
+    tunnel_pid=""
   fi
 
   echo "🔒 Tunnel closed."
