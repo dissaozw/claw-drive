@@ -33,8 +33,8 @@ Create `~/vault/INDEX.md`:
 
 ## File Index
 
-| Date | Path | Description | Source |
-|------|------|-------------|--------|
+| Date | Path | Description | Tags | Source |
+|------|------|-------------|------|--------|
 
 ---
 *Last updated: YYYY-MM-DD*
@@ -51,19 +51,38 @@ When receiving a file (email attachment, Telegram upload, etc.):
 1. **Classify** — determine the best category from the directory structure
 2. **Name** — give it a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
 3. **Copy** — `cp <source> ~/vault/<category>/<descriptive-name>`
-4. **Index** — append a row to `~/vault/INDEX.md`:
+4. **Tag** — assign 1-5 relevant tags (see Tagging below)
+5. **Index** — append a row to `~/vault/INDEX.md`:
    ```
-   | YYYY-MM-DD | category/filename | Brief description | Source (email, telegram, etc.) |
+   | YYYY-MM-DD | category/filename | Brief description | tag1, tag2 | Source |
    ```
-5. **Report** — tell the user: path, category, and what was indexed
+6. **Report** — tell the user: path, category, tags, and what was indexed
 
 ### Retrieving a file
 
 When asked to find a file:
 
-1. **Search INDEX.md** — grep or scan the index table
+1. **Search INDEX.md** — grep or scan the index table by description, tags, path, or date
 2. **Verify** — confirm the file exists at the listed path
 3. **Deliver** — send via message tool or provide the path
+
+### Tagging
+
+Tags add cross-category searchability. A file lives in one folder but can have multiple tags.
+
+**Guidelines:**
+- 1-5 tags per file, comma-separated in the Tags column
+- Lowercase, single words or short hyphenated phrases
+- Always include the category name as a tag (e.g. `medical` for files in `medical/`)
+- Add cross-cutting tags for things like: entity names (`sorbet`), document type (`invoice`, `receipt`, `report`), context (`emergency`, `tax-2025`)
+- Reuse existing tags when possible — check INDEX.md before inventing new ones
+
+**Examples:**
+```
+| 2026-02-15 | medical/sorbet-vet-invoice-2026-02-15.pdf | VEG emergency visit invoice | medical, invoice, sorbet, emergency | email |
+| 2026-01-20 | finance/w2-2025.pdf | W-2 tax form 2025 | finance, tax-2025 | email |
+| 2026-02-10 | travel/japan-itinerary-2026-03.pdf | Tokyo trip itinerary | travel, japan | telegram |
+```
 
 ### Naming conventions
 
