@@ -2,24 +2,18 @@
 # lib/sync.sh — Google Drive sync daemon for Claw Drive
 
 SYNC_DEBOUNCE_SEC=3
-SYNC_AUTH_TIMEOUT=120  # Kill tunnel after 2 minutes regardless
+SYNC_AUTH_TIMEOUT=120
 
-# Authenticate with Google Drive via rclone + cloudflared tunnel
+# Authenticate with Google Drive via rclone
 sync_auth() {
   echo "🔐 Claw Drive — Google Drive Authorization"
   echo ""
 
-  # Check dependencies
   if ! command -v rclone &>/dev/null; then
     echo "❌ rclone not found. Install: brew install rclone"
     return 1
   fi
-  if ! command -v cloudflared &>/dev/null; then
-    echo "❌ cloudflared not found. Install: brew install cloudflared"
-    return 1
-  fi
 
-  # Check if remote already exists
   if rclone listremotes 2>/dev/null | grep -q "^gdrive:$"; then
     echo "⚠️  rclone remote 'gdrive' already exists."
     echo "   To re-authorize, run: rclone config delete gdrive"
@@ -27,150 +21,22 @@ sync_auth() {
     return 1
   fi
 
-  local tunnel_pid=""
-  local rclone_pid=""
-  local timeout_pid=""
-  local tunnel_log
-  tunnel_log=$(mktemp)
-  local rclone_out
-  rclone_out=$(mktemp)
-
-  # Cleanup function — always kill tunnel and rclone
-  _sync_auth_cleanup() {
-    [[ -n "$tunnel_pid" ]] && kill "$tunnel_pid" 2>/dev/null && wait "$tunnel_pid" 2>/dev/null
-    [[ -n "$rclone_pid" ]] && kill "$rclone_pid" 2>/dev/null && wait "$rclone_pid" 2>/dev/null
-    [[ -n "${timeout_pid:-}" ]] && kill "$timeout_pid" 2>/dev/null
-    rm -f "$tunnel_log" "$rclone_out"
-    echo ""
-    echo "🔒 Tunnel closed."
-  }
-  trap _sync_auth_cleanup EXIT
-
-  # Step 1: Start rclone first — it opens an HTTP server on :53682
-  echo "🔑 Starting authorization server..."
-  rclone authorize "drive" --auth-no-open-browser > "$rclone_out" 2>&1 &
-  rclone_pid=$!
-
-  # Wait for rclone to print its auth URL (means server is ready)
-  local waited=0
-  local auth_path=""
-  while [[ $waited -lt 10 ]]; do
-    sleep 1
-    ((waited++)) || true
-    auth_path=$(grep -o '/auth?state=[^ ]*' "$rclone_out" 2>/dev/null | head -1 || true)
-    if [[ -n "$auth_path" ]]; then
-      break
-    fi
-  done
-
-  if [[ -z "$auth_path" ]]; then
-    echo "❌ rclone failed to start auth server."
-    cat "$rclone_out"
-    return 1
-  fi
-  echo "✅ Auth server ready"
-
-  # Step 2: Start cloudflared tunnel now that rclone is ready
-  echo "🔗 Starting secure tunnel..."
-  cloudflared tunnel --url http://localhost:53682 > "$tunnel_log" 2>&1 &
-  tunnel_pid=$!
-
-  # Wait for cloudflared to provide the public URL (max 15 seconds)
-  local tunnel_url=""
-  waited=0
-  while [[ -z "$tunnel_url" && $waited -lt 15 ]]; do
-    sleep 1
-    ((waited++)) || true
-    tunnel_url=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$tunnel_log" 2>/dev/null | head -1 || true)
-  done
-
-  if [[ -z "$tunnel_url" ]]; then
-    echo "❌ Failed to start cloudflared tunnel."
-    cat "$tunnel_log"
-    return 1
-  fi
-
-  echo "✅ Tunnel ready"
+  echo "Starting rclone authorization..."
+  echo "A browser window will open on this machine for Google sign-in."
   echo ""
 
-  # Start safety timeout
-  (
-    sleep "$SYNC_AUTH_TIMEOUT"
-    kill "$tunnel_pid" 2>/dev/null
-    kill "$rclone_pid" 2>/dev/null
-    echo ""
-    echo "⏰ Auth timeout (${SYNC_AUTH_TIMEOUT}s). Tunnel killed for safety."
-  ) &
-  timeout_pid=$!
+  rclone authorize "drive"
+  local exit_code=$?
 
-  echo "🌐 Open this link to authorize Google Drive:"
-  echo ""
-  echo "   ${tunnel_url}${auth_path}"
-  echo ""
-  echo "⏳ Waiting for authorization (timeout: ${SYNC_AUTH_TIMEOUT}s)..."
-
-  # Wait for rclone to finish (user completes auth)
-  wait "$rclone_pid" 2>/dev/null
-  local rclone_exit=$?
-  rclone_pid=""
-
-  # Kill timeout watcher
-  kill "$timeout_pid" 2>/dev/null || true
-  timeout_pid=""
-
-  # Kill tunnel immediately
-  if [[ -n "$tunnel_pid" ]]; then
-    kill "$tunnel_pid" 2>/dev/null || true
-    wait "$tunnel_pid" 2>/dev/null || true
-    tunnel_pid=""
-  fi
-
-  echo "🔒 Tunnel closed."
-
-  if [[ $rclone_exit -ne 0 ]]; then
-    echo "❌ Authorization failed or timed out."
-    cat "$rclone_out"
-    rm -f "$rclone_out"
+  if [[ $exit_code -ne 0 ]]; then
+    echo "❌ Authorization failed."
     return 1
   fi
 
-  # Extract token from rclone output
-  local token
-  token=$(sed -n '/^{/,/^}/p' "$rclone_out" | head -20)
-  rm -f "$rclone_out"
-
-  if [[ -z "$token" ]]; then
-    echo "❌ Could not extract token from rclone output."
-    return 1
-  fi
-
+  echo ""
   echo "✅ Authorization successful!"
-  echo ""
-
-  # Configure rclone remote with the token
-  rclone config create gdrive drive config_is_local=false config_token="$token" > /dev/null 2>&1
-
-  echo "✅ rclone remote 'gdrive' configured."
-  echo ""
-
-  # Create default .sync-config if it doesn't exist
-  if [[ ! -f "$CLAW_DRIVE_SYNC_CONFIG" ]]; then
-    cat > "$CLAW_DRIVE_SYNC_CONFIG" <<EOF
-backend: google-drive
-remote: gdrive:claw-drive
-exclude:
-  - identity/
-  - .hashes
-EOF
-    echo "✅ Created $CLAW_DRIVE_SYNC_CONFIG"
-  fi
-
-  echo ""
-  echo "🎉 Google Drive sync is ready!"
-  echo "   Run: claw-drive sync start"
-
-  # Reset trap
-  trap - EXIT
+  echo "   Run: rclone config create gdrive drive"
+  echo "   Then: claw-drive sync start"
 }
 
 # Check sync prerequisites

@@ -22,7 +22,7 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 
 ```bash
 # 1. Install dependencies
-brew install rclone fswatch cloudflared
+brew install rclone fswatch
 
 # 2. Clone and install
 git clone git@github.com:dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive
@@ -87,7 +87,7 @@ The CLI is the interface agents use under the hood. All commands support `--json
 | `claw-drive list` | List all indexed files |
 | `claw-drive tags` | List all tags with usage counts |
 | `claw-drive status` | Show drive status (files, size, sync) |
-| `claw-drive sync auth` | Authorize Google Drive (one-time, Cloudflare tunnel) |
+| `claw-drive sync auth` | Authorize Google Drive (one-time, opens browser) |
 | `claw-drive sync setup` | Check sync dependencies and config |
 | `claw-drive sync start` | Start background sync daemon |
 | `claw-drive sync stop` | Stop sync daemon |

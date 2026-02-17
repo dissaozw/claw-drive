@@ -239,7 +239,7 @@ cmd_sync() {
       echo "Usage: claw-drive sync <command>"
       echo ""
       echo "Commands:"
-      echo "  auth    — authorize Google Drive (one-time, uses ngrok tunnel)"
+      echo "  auth    — authorize Google Drive (one-time, opens browser)"
       echo "  setup   — check dependencies and configuration"
       echo "  push    — one-shot sync to remote"
       echo "  start   — start background sync daemon"
