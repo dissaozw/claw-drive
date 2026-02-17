@@ -25,8 +25,5 @@ lint: ## Run shellcheck on all scripts
 	@shellcheck bin/claw-drive lib/*.sh || true
 	@echo "Done."
 
-test: ## Run basic smoke tests
-	@echo "Running smoke tests..."
-	@bash bin/claw-drive version
-	@bash bin/claw-drive help > /dev/null
-	@echo "✅ All tests passed."
+test: ## Run functional tests
+	@bash test/test.sh

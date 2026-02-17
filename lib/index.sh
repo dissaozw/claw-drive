@@ -12,7 +12,7 @@ index_search() {
   fi
 
   local results
-  results=$(grep -i "$query" "$CLAW_DRIVE_INDEX" | grep -E '^\|' | grep -v '^| Date' | grep -v '^|---')
+  results=$(grep -i "$query" "$CLAW_DRIVE_INDEX" | grep -E '^\|' | grep -v '^| Date' | grep -v '^|---' || true)
 
   if [[ -z "$results" ]]; then
     echo "No files found matching: $query"
