@@ -86,6 +86,39 @@ Just send a file to your OpenClaw agent. It handles:
 
 To retrieve, just ask: *"find my W-2 from 2025"* or *"show all files tagged sorbet"*.
 
+## Sync
+
+Auto-sync to Google Drive with a background daemon:
+
+```bash
+# Install dependencies
+brew install rclone fswatch
+
+# Configure rclone remote
+rclone config
+
+# Create sync config
+cat > ~/claw-drive/.sync-config <<EOF
+backend: google-drive
+remote: gdrive:claw-drive
+exclude:
+  - identity/
+  - .hashes
+EOF
+
+# Start the daemon
+claw-drive-sync setup   # verify everything
+claw-drive-sync start   # background fswatch + rclone
+```
+
+Files sync to Google Drive within seconds of any change. The daemon runs as a launchd service — starts on login, restarts on failure. Sensitive directories (like `identity/`) can be excluded from sync.
+
+```bash
+claw-drive-sync status  # check if running + last sync time
+claw-drive-sync push    # manual one-shot sync
+claw-drive-sync stop    # stop the daemon
+```
+
 ## Roadmap
 
 - [ ] Full-text search (PDF/image text extraction at store time)

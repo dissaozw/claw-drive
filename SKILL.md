@@ -123,6 +123,47 @@ Create `~/claw-drive/.hashes` on first use if it doesn't exist.
 
 **Note:** Dedup is content-based (hash), not name-based. Same file with different names = duplicate. Different files with same name = both stored.
 
+## Sync (Optional)
+
+Claw Drive can auto-sync to Google Drive (or any rclone-supported backend) via a background daemon.
+
+### Prerequisites
+
+```bash
+brew install rclone fswatch
+rclone config  # set up a remote named "gdrive"
+```
+
+### Configuration
+
+Create `~/claw-drive/.sync-config`:
+
+```yaml
+backend: google-drive
+remote: gdrive:claw-drive
+exclude:
+  - identity/
+  - .hashes
+```
+
+### Commands
+
+```bash
+claw-drive-sync setup   # verify deps and config
+claw-drive-sync start   # start background daemon (fswatch + rclone)
+claw-drive-sync stop    # stop daemon
+claw-drive-sync push    # manual one-shot sync
+claw-drive-sync status  # show sync status
+```
+
+The daemon watches `~/claw-drive/` for file changes and syncs to the remote within seconds. It runs as a launchd service — starts on login, restarts on failure.
+
+Logs: `~/Library/Logs/claw-drive/sync.log`
+
+### Per-category privacy
+
+Use the `exclude` list in `.sync-config` to keep sensitive directories local-only. `identity/` is excluded by default in the example above.
+
 ## Tips
 
 - Always update INDEX.md when adding files — it's the single source of truth

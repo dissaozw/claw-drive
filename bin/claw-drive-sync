@@ -1,0 +1,257 @@
+#!/usr/bin/env bash
+# claw-drive-sync — Google Drive sync daemon for Claw Drive
+# Requires: rclone, fswatch (macOS)
+
+set -euo pipefail
+
+DRIVE_DIR="${CLAW_DRIVE_DIR:-$HOME/claw-drive}"
+CONFIG_FILE="$DRIVE_DIR/.sync-config"
+STATE_FILE="$DRIVE_DIR/.sync-state"
+PLIST_NAME="com.claw-drive.sync"
+PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+DEBOUNCE_SEC=3
+LOG_DIR="$HOME/Library/Logs/claw-drive"
+
+# --- Config parsing (simple YAML-like) ---
+
+get_remote() {
+  if [[ -f "$CONFIG_FILE" ]]; then
+    grep -E '^remote:' "$CONFIG_FILE" | sed 's/^remote:[[:space:]]*//' | tr -d '"'"'"
+  fi
+}
+
+get_excludes() {
+  if [[ -f "$CONFIG_FILE" ]]; then
+    sed -n '/^exclude:/,/^[^ -]/p' "$CONFIG_FILE" | grep -E '^\s*-' | sed 's/^[[:space:]]*-[[:space:]]*//'
+  fi
+}
+
+build_exclude_args() {
+  local args=""
+  while IFS= read -r pattern; do
+    [[ -n "$pattern" ]] && args="$args --exclude $pattern"
+  done < <(get_excludes)
+  # Always exclude sync internals
+  args="$args --exclude .sync-config --exclude .sync-state"
+  echo "$args"
+}
+
+# --- Commands ---
+
+cmd_setup() {
+  echo "🗄️  Claw Drive Sync Setup"
+  echo ""
+
+  # Check rclone
+  if command -v rclone &>/dev/null; then
+    echo "✅ rclone installed ($(rclone version --check 2>/dev/null || rclone version | head -1))"
+  else
+    echo "❌ rclone not found. Install: brew install rclone"
+    exit 1
+  fi
+
+  # Check fswatch
+  if command -v fswatch &>/dev/null; then
+    echo "✅ fswatch installed"
+  else
+    echo "❌ fswatch not found. Install: brew install fswatch"
+    exit 1
+  fi
+
+  # Check drive dir
+  if [[ -d "$DRIVE_DIR" ]]; then
+    echo "✅ Drive directory: $DRIVE_DIR"
+  else
+    echo "❌ Drive directory not found: $DRIVE_DIR"
+    exit 1
+  fi
+
+  # Check rclone remote
+  local remote
+  remote=$(get_remote)
+  if [[ -z "$remote" ]]; then
+    echo ""
+    echo "⚠️  No .sync-config found. Create $CONFIG_FILE:"
+    echo ""
+    echo "  backend: google-drive"
+    echo "  remote: gdrive:claw-drive"
+    echo "  exclude:"
+    echo "    - identity/"
+    echo "    - .hashes"
+    echo ""
+    echo "Then run: rclone config  (to set up the 'gdrive' remote)"
+    exit 1
+  fi
+
+  local remote_name="${remote%%:*}"
+  if rclone listremotes | grep -q "^${remote_name}:$"; then
+    echo "✅ rclone remote '$remote_name' configured"
+  else
+    echo "❌ rclone remote '$remote_name' not found. Run: rclone config"
+    exit 1
+  fi
+
+  echo ""
+  echo "✅ Ready! Run: claw-drive-sync start"
+}
+
+cmd_push() {
+  local remote
+  remote=$(get_remote)
+  if [[ -z "$remote" ]]; then
+    echo "❌ No remote configured. Run: claw-drive-sync setup"
+    exit 1
+  fi
+
+  local exclude_args
+  exclude_args=$(build_exclude_args)
+
+  echo "📤 Syncing $DRIVE_DIR → $remote ..."
+  # shellcheck disable=SC2086
+  rclone sync "$DRIVE_DIR" "$remote" $exclude_args --verbose 2>&1
+
+  # Record sync time
+  date -u +"%Y-%m-%dT%H:%M:%SZ" > "$STATE_FILE"
+  echo "✅ Sync complete."
+}
+
+cmd_watch_loop() {
+  # Internal: the actual fswatch loop (run by launchd)
+  local remote
+  remote=$(get_remote)
+  if [[ -z "$remote" ]]; then
+    echo "❌ No remote configured." >&2
+    exit 1
+  fi
+
+  local exclude_args
+  exclude_args=$(build_exclude_args)
+
+  echo "👀 Watching $DRIVE_DIR for changes (debounce: ${DEBOUNCE_SEC}s)..."
+  echo "📡 Remote: $remote"
+
+  fswatch -o -l "$DEBOUNCE_SEC" \
+    --exclude '\.sync-state$' \
+    --exclude '\.sync-config$' \
+    --exclude '\.DS_Store$' \
+    "$DRIVE_DIR" | while read -r _count; do
+    echo "[$(date '+%H:%M:%S')] Change detected, syncing..."
+    # shellcheck disable=SC2086
+    if rclone sync "$DRIVE_DIR" "$remote" $exclude_args 2>&1; then
+      date -u +"%Y-%m-%dT%H:%M:%SZ" > "$STATE_FILE"
+      echo "[$(date '+%H:%M:%S')] ✅ Sync complete."
+    else
+      echo "[$(date '+%H:%M:%S')] ❌ Sync failed." >&2
+    fi
+  done
+}
+
+cmd_start() {
+  if launchctl list 2>/dev/null | grep -q "$PLIST_NAME"; then
+    echo "⚠️  Already running. Use 'claw-drive-sync stop' first."
+    return 1
+  fi
+
+  mkdir -p "$LOG_DIR"
+
+  cat > "$PLIST_PATH" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$PLIST_NAME</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$SCRIPT_PATH</string>
+        <string>_watch</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>CLAW_DRIVE_DIR</key>
+        <string>$DRIVE_DIR</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$LOG_DIR/sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>$LOG_DIR/sync.err</string>
+</dict>
+</plist>
+EOF
+
+  launchctl load "$PLIST_PATH"
+  echo "✅ Sync daemon started."
+  echo "   Logs: $LOG_DIR/sync.log"
+}
+
+cmd_stop() {
+  if [[ -f "$PLIST_PATH" ]]; then
+    launchctl unload "$PLIST_PATH" 2>/dev/null || true
+    rm -f "$PLIST_PATH"
+    echo "✅ Sync daemon stopped."
+  else
+    echo "⚠️  Not running."
+  fi
+}
+
+cmd_status() {
+  echo "🗄️  Claw Drive Sync Status"
+  echo ""
+
+  # Daemon running?
+  if launchctl list 2>/dev/null | grep -q "$PLIST_NAME"; then
+    echo "🟢 Daemon: running"
+  else
+    echo "🔴 Daemon: stopped"
+  fi
+
+  # Remote
+  local remote
+  remote=$(get_remote)
+  echo "📡 Remote: ${remote:-not configured}"
+
+  # Last sync
+  if [[ -f "$STATE_FILE" ]]; then
+    echo "🕐 Last sync: $(cat "$STATE_FILE")"
+  else
+    echo "🕐 Last sync: never"
+  fi
+
+  # Excludes
+  local excludes
+  excludes=$(get_excludes)
+  if [[ -n "$excludes" ]]; then
+    echo "🚫 Excludes:"
+    while IFS= read -r e; do
+      echo "   - $e"
+    done <<< "$excludes"
+  fi
+}
+
+# --- Main ---
+
+case "${1:-help}" in
+  setup)   cmd_setup ;;
+  push)    cmd_push ;;
+  start)   cmd_start ;;
+  stop)    cmd_stop ;;
+  status)  cmd_status ;;
+  _watch)  cmd_watch_loop ;;
+  help|*)
+    echo "Usage: claw-drive-sync <command>"
+    echo ""
+    echo "Commands:"
+    echo "  setup   — check dependencies and configuration"
+    echo "  push    — one-shot sync to remote"
+    echo "  start   — start background sync daemon (fswatch + rclone)"
+    echo "  stop    — stop background sync daemon"
+    echo "  status  — show sync status"
+    ;;
+esac
