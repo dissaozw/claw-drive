@@ -86,16 +86,18 @@ sync_auth() {
   rclone_pid=$!
 
   # Wait for rclone to print the auth URL (max 15 seconds)
-  local auth_url=""
+  local auth_path=""
   waited=0
-  while [[ -z "$auth_url" && $waited -lt 15 ]]; do
+  while [[ -z "$auth_path" && $waited -lt 15 ]]; do
     sleep 1
     ((waited++)) || true
-    auth_url=$(grep -o 'http[s]*://accounts.google.com[^ ]*' "$rclone_out" 2>/dev/null | head -1 || true)
+    auth_path=$(grep -o 'http://127.0.0.1:53682/auth?[^ ]*' "$rclone_out" 2>/dev/null | head -1 | sed 's|http://127.0.0.1:53682||' || true)
   done
 
-  if [[ -n "$auth_url" ]]; then
-    echo "   $auth_url"
+  if [[ -n "$auth_path" ]]; then
+    echo ""
+    echo "   ${tunnel_url}${auth_path}"
+    echo ""
   else
     echo "   (waiting for rclone to generate auth URL...)"
     echo "   Check rclone output: $rclone_out"

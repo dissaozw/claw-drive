@@ -5,7 +5,17 @@
 set -euo pipefail
 
 CLAW_DRIVE_VERSION="0.1.0"
-CLAW_DRIVE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve symlinks to find the real script location
+CLAW_DRIVE_SCRIPT="${BASH_SOURCE[0]}"
+while [[ -L "$CLAW_DRIVE_SCRIPT" ]]; do
+  CLAW_DRIVE_LINK="$(readlink "$CLAW_DRIVE_SCRIPT")"
+  if [[ "$CLAW_DRIVE_LINK" == /* ]]; then
+    CLAW_DRIVE_SCRIPT="$CLAW_DRIVE_LINK"
+  else
+    CLAW_DRIVE_SCRIPT="$(dirname "$CLAW_DRIVE_SCRIPT")/$CLAW_DRIVE_LINK"
+  fi
+done
+CLAW_DRIVE_ROOT="$(cd "$(dirname "$CLAW_DRIVE_SCRIPT")/.." && pwd)"
 
 # Load libraries
 source "$CLAW_DRIVE_ROOT/lib/config.sh"

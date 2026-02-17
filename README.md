@@ -21,9 +21,20 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 ## Install
 
 ```bash
+# 1. Install dependencies
+brew install rclone fswatch cloudflared
+
+# 2. Clone and install
 git clone git@github.com:dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive
-cd ~/.openclaw/skills/claw-drive && make install
+cd ~/.openclaw/skills/claw-drive
+make install   # symlinks claw-drive to /usr/local/bin (or PREFIX=~/.local make install)
+
+# 3. Initialize your drive
 claw-drive init
+
+# 4. (Optional) Set up Google Drive sync
+claw-drive sync auth    # agent sends you a link to click
+claw-drive sync start   # start background sync daemon
 ```
 
 ## Usage
@@ -86,30 +97,7 @@ The CLI is the interface agents use under the hood. All commands support `--json
 
 ## Sync
 
-Optional real-time sync to Google Drive (or any rclone backend):
-
-```bash
-# Install dependencies
-brew install rclone fswatch cloudflared
-
-# Authorize Google Drive (agent sends you a link to click)
-claw-drive sync auth
-
-# Or configure manually
-cat > ~/claw-drive/.sync-config <<EOF
-backend: google-drive
-remote: gdrive:claw-drive
-exclude:
-  - identity/
-  - .hashes
-EOF
-
-# Start daemon
-claw-drive sync setup
-claw-drive sync start
-```
-
-Files sync within seconds of any change. Sensitive directories stay local-only.
+Optional real-time sync to Google Drive (or any rclone backend). Files sync within seconds of any change. Sensitive directories stay local-only.
 
 See [docs/sync.md](docs/sync.md) for details.
 
