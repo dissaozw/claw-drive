@@ -28,16 +28,23 @@ This creates the directory structure, INDEX.md, and hash ledger. Default path: `
 
 When receiving a file (email attachment, Telegram upload, etc.):
 
-1. **Extract** — always read the file contents before storing:
+1. **Privacy check** — ask the user gracefully if the file contains sensitive/personal data:
+   - Something like: "Should I read the contents to index it better, or would you prefer I keep it private and just use the filename?"
+   - **If user says sensitive**, or **if user doesn't reply** → treat as **sensitive** (default-safe)
+   - **If user confirms it's fine to read** → proceed with full extraction
+   - Files going to `identity/` are **always sensitive** — never read contents
+   - Sensitive flow: classify by filename/metadata only. If that's not enough for a good description, ask the user for a brief description. Never read file contents into the conversation.
+
+2. **Extract** (normal files only) — read file contents:
    - **PDFs:** extract text via `uv run --with pymupdf python3 -c "import pymupdf; ..."` or use the image tool
    - **Images:** use the image tool to read/describe contents
    - **Other formats:** read directly if possible
    - Pull out key entities: names, dates, amounts, account/policy numbers, addresses, etc.
-2. **Classify** — determine the best category from the categories table below
-3. **Name** — choose a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
-4. **Describe** — write a rich description using extracted content. Include key details (dates, amounts, IDs, names) so the file is findable by any relevant search term. Don't be vague — "insurance card" is bad, "Farmers Insurance ID cards - 2024 Mercedes-Benz AMG GLC 43, Policy 525613441, effective 1/21/2026–7/21/2026" is good.
-5. **Tag** — include specific tags from extracted content (model names, policy numbers, VINs, entity names) in addition to category tags
-6. **Store** — run the CLI:
+3. **Classify** — determine the best category from the categories table below
+4. **Name** — choose a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
+5. **Describe** — write a rich description using extracted content (or user-provided description for sensitive files). Include key details (dates, amounts, IDs, names) so the file is findable by any relevant search term. Don't be vague — "insurance card" is bad, "Farmers Insurance ID cards - 2024 Mercedes-Benz AMG GLC 43, Policy 525613441, effective 1/21/2026–7/21/2026" is good.
+6. **Tag** — include specific tags from extracted content (model names, policy numbers, VINs, entity names) in addition to category tags
+7. **Store** — run the CLI:
    ```bash
    claw-drive store <file> --category <cat> --name "clean-name.ext" --desc "Rich description with key details" --tags "tag1, tag2" --source telegram
    ```
