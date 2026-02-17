@@ -108,6 +108,46 @@ echo ""
 echo "Status:"
 assert_output "status shows dir" "$TEST_DIR" bash "$CLI" status
 
+# --- Migrate ---
+echo ""
+echo "Migrate:"
+MIGRATE_SRC="$TEST_DIR/migrate-source"
+mkdir -p "$MIGRATE_SRC/taxes" "$MIGRATE_SRC/photos"
+echo "w2 content" > "$MIGRATE_SRC/taxes/w2-form.pdf"
+echo "photo" > "$MIGRATE_SRC/photos/vacation.jpg"
+PLAN_FILE="$TEST_DIR/plan.json"
+
+assert "migrate scan" bash "$CLI" migrate scan "$MIGRATE_SRC" "$PLAN_FILE"
+assert "plan file created" test -f "$PLAN_FILE"
+assert_output "plan has 2 files" "2" python3 -c "import json; print(len(json.load(open('$PLAN_FILE'))['files']))"
+assert_output "migrate summary" "Total files: 2" bash "$CLI" migrate summary "$PLAN_FILE"
+
+# Fill in the plan for apply test
+python3 -c "
+import json
+plan = json.load(open('$PLAN_FILE'))
+for f in plan['files']:
+    if 'w2' in f['source_path']:
+        f['category'] = 'finance'
+        f['name'] = 'w2-form-2025.pdf'
+        f['tags'] = 'finance, tax-2025'
+        f['description'] = 'W-2 form 2025'
+        f['confidence'] = 'high'
+    else:
+        f['category'] = 'photos'
+        f['name'] = 'vacation.jpg'
+        f['tags'] = 'photos, vacation'
+        f['description'] = 'Vacation photo'
+        f['confidence'] = 'medium'
+json.dump(plan, open('$PLAN_FILE', 'w'), indent=2)
+"
+
+assert "migrate apply dry-run" bash "$CLI" migrate apply "$PLAN_FILE" --dry-run
+assert "migrate apply" bash "$CLI" migrate apply "$PLAN_FILE"
+assert "migrated file exists" test -f "$TEST_DIR/finance/w2-form-2025.pdf"
+assert "migrated photo exists" test -f "$TEST_DIR/photos/vacation.jpg"
+assert_output "migrated file indexed" "w2-form-2025" cat "$TEST_DIR/INDEX.md"
+
 # --- Results ---
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

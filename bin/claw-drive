@@ -12,6 +12,7 @@ source "$CLAW_DRIVE_ROOT/lib/config.sh"
 source "$CLAW_DRIVE_ROOT/lib/index.sh"
 source "$CLAW_DRIVE_ROOT/lib/dedup.sh"
 source "$CLAW_DRIVE_ROOT/lib/sync.sh"
+source "$CLAW_DRIVE_ROOT/lib/migrate.sh"
 
 # --- Commands ---
 
@@ -216,6 +217,47 @@ cmd_sync() {
   esac
 }
 
+cmd_migrate() {
+  local subcmd="${1:-help}"
+  shift || true
+
+  case "$subcmd" in
+    scan)
+      local source_dir="${1:-}"
+      local output="${2:-migration-plan.json}"
+      if [[ -z "$source_dir" ]]; then
+        echo "❌ Usage: claw-drive migrate scan <source-dir> [output.json]"
+        return 1
+      fi
+      migrate_scan "$source_dir" "$output"
+      ;;
+    apply)
+      local plan="${1:-migration-plan.json}"
+      local dry_run="false"
+      [[ "${2:-}" == "--dry-run" ]] && dry_run="true"
+      migrate_apply "$plan" "$dry_run"
+      ;;
+    summary)
+      local plan="${1:-migration-plan.json}"
+      migrate_summary "$plan"
+      ;;
+    help|*)
+      echo "Usage: claw-drive migrate <command>"
+      echo ""
+      echo "Commands:"
+      echo "  scan <source-dir> [output.json]   — scan directory, output plan"
+      echo "  summary [plan.json]               — show plan summary"
+      echo "  apply [plan.json] [--dry-run]     — execute migration plan"
+      echo ""
+      echo "Workflow:"
+      echo "  1. claw-drive migrate scan ~/messy-folder"
+      echo "  2. AI agent classifies files in migration-plan.json"
+      echo "  3. claw-drive migrate summary    (review)"
+      echo "  4. claw-drive migrate apply      (execute)"
+      ;;
+  esac
+}
+
 cmd_version() {
   echo "claw-drive $CLAW_DRIVE_VERSION"
 }
@@ -233,6 +275,7 @@ Commands:
   list [--json]                 List all indexed files
   tags [--json]                 List all tags with usage counts
   status [--json]               Show drive status
+  migrate <subcommand>          Migrate files from existing directory
   sync <subcommand>             Manage Google Drive sync
   version                       Show version
   help                          Show this help
@@ -260,6 +303,7 @@ case "${1:-help}" in
   list)     shift; cmd_list "$@" ;;
   tags)     shift; cmd_tags "$@" ;;
   status)   shift; cmd_status "$@" ;;
+  migrate)  shift; cmd_migrate "$@" ;;
   sync)     shift; cmd_sync "$@" ;;
   version|--version|-v) cmd_version ;;
   help|--help|-h) cmd_help ;;
