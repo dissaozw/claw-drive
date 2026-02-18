@@ -7,6 +7,8 @@
 [![Shell](https://img.shields.io/badge/Shell-bash-4EAA25?logo=gnubash&logoColor=white&style=flat-square)](https://www.gnu.org/software/bash/)
 [![CI](https://github.com/dissaozw/claw-drive/actions/workflows/ci.yml/badge.svg)](https://github.com/dissaozw/claw-drive/actions/workflows/ci.yml)
 
+**Tests:** 47 passed · 0 failed (Ubuntu + macOS)
+
 Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags them for cross-cutting search, deduplicates by content, and retrieves them in natural language — all backed by Google Drive for cloud sync and security.
 
 **Privacy is not a feature — it's the foundation.** Your agent never reads file contents without asking. If you don't respond, it defaults to private. Sensitive categories like `identity/` are never read, never synced. Your data stays yours.
