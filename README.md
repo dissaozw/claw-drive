@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-ffd60a?style=flat-square)](https://opensource.org/licenses/MIT)
 [![macOS](https://img.shields.io/badge/macOS-supported-0078d7?logo=apple&logoColor=white&style=flat-square)](https://www.apple.com/macos/)
 [![Shell](https://img.shields.io/badge/Shell-bash-4EAA25?logo=gnubash&logoColor=white&style=flat-square)](https://www.gnu.org/software/bash/)
+[![CI](https://github.com/dissaozw/claw-drive/actions/workflows/ci.yml/badge.svg)](https://github.com/dissaozw/claw-drive/actions/workflows/ci.yml)
 
 Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags them for cross-cutting search, deduplicates by content, and retrieves them in natural language — all backed by Google Drive for cloud sync and security.
 
