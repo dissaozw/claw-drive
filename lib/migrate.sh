@@ -100,20 +100,9 @@ migrate_apply() {
   local total=0 stored=0 skipped=0 dupes=0 errors=0
 
   # Process each file in the plan
-  python3 -c "
-import json, sys
-plan = json.load(open('$plan_file'))
-for f in plan['files']:
-    if f.get('status') == 'skip':
-        continue
-    cat = f.get('category') or ''
-    name = f.get('name') or ''
-    tags = f.get('tags') or ''
-    desc = f.get('description') or ''
-    src = f.get('source_path') or ''
-    conf = f.get('confidence') or ''
-    print(f'{src}\t{cat}\t{name}\t{tags}\t{desc}\t{conf}')
-" | while IFS=$'\t' read -r src_path category new_name tags description confidence; do
+  # Note: use process substitution (< <(...)) instead of a pipe so the
+  # while-loop runs in the current shell and counter variables persist.
+  while IFS=$'\t' read -r src_path category new_name tags description confidence; do
     ((total++)) || true
 
     if [[ -z "$category" || -z "$new_name" ]]; then
@@ -161,7 +150,20 @@ $index_row
       echo "  ✅ $src_path → $category/$new_name"
     fi
     ((stored++)) || true
-  done
+  done < <(python3 -c "
+import json, sys
+plan = json.load(open('$plan_file'))
+for f in plan['files']:
+    if f.get('status') == 'skip':
+        continue
+    cat = f.get('category') or ''
+    name = f.get('name') or ''
+    tags = f.get('tags') or ''
+    desc = f.get('description') or ''
+    src = f.get('source_path') or ''
+    conf = f.get('confidence') or ''
+    print(f'{src}\t{cat}\t{name}\t{tags}\t{desc}\t{conf}')
+")
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
