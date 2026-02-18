@@ -165,6 +165,59 @@ $index_row
   fi
 }
 
+cmd_delete() {
+  local target="" force=false json_output=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force|-f) force=true; shift ;;
+      --json) json_output=true; shift ;;
+      *) target="$1"; shift ;;
+    esac
+  done
+
+  if [[ -z "$target" ]]; then
+    echo "❌ Usage: claw-drive delete <category/filename> [--force] [--json]"
+    return 1
+  fi
+
+  claw_drive_init || return 1
+
+  local full_path="$CLAW_DRIVE_DIR/$target"
+
+  # Check file exists
+  if [[ ! -f "$full_path" ]]; then
+    echo "❌ File not found: $target"
+    return 1
+  fi
+
+  # Confirm unless --force
+  if [[ "$force" != "true" ]]; then
+    echo "🗑️  Delete: $target"
+    printf "   Are you sure? [y/N] "
+    read -r confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+      echo "   Cancelled."
+      return 0
+    fi
+  fi
+
+  # Remove the file
+  rm "$full_path"
+
+  # Remove from INDEX.md
+  index_remove "$target"
+
+  # Remove from hash ledger
+  dedup_unregister "$target"
+
+  if [[ "$json_output" == "true" ]]; then
+    printf '{"status":"deleted","path":"%s"}\n' "$target"
+  else
+    echo "✅ Deleted: $target"
+  fi
+}
+
 cmd_search() {
   local query="" format="table"
 
@@ -305,6 +358,7 @@ Usage: claw-drive <command> [options]
 Commands:
   init [path]                   Initialize drive at path (default: ~/claw-drive)
   store <file> [options]        Store a file with categorization
+  delete <category/file>        Delete a file (removes file, index entry, and hash)
   search <query> [--json]       Search files by description, tags, or path
   list [--json]                 List all indexed files
   tags [--json]                 List all tags with usage counts
@@ -323,6 +377,10 @@ Store options:
   --source, -s <source>         Source (email, telegram, manual)
   --json                        JSON output
 
+Delete options:
+  --force, -f                   Skip confirmation prompt
+  --json                        JSON output
+
 Environment:
   CLAW_DRIVE_DIR                Drive directory (default: ~/claw-drive)
 
@@ -335,6 +393,7 @@ EOF
 case "${1:-help}" in
   init)     shift; cmd_init "$@" ;;
   store)    shift; cmd_store "$@" ;;
+  delete|rm) shift; cmd_delete "$@" ;;
   search)   shift; cmd_search "$@" ;;
   list)     shift; cmd_list "$@" ;;
   tags)     shift; cmd_tags "$@" ;;

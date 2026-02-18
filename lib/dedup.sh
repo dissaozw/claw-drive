@@ -41,6 +41,24 @@ dedup_register() {
   echo "$hash  $relative_path" >> "$CLAW_DRIVE_HASHES"
 }
 
+# Remove a file's hash from the dedup ledger by relative path
+dedup_unregister() {
+  local relative_path="$1"
+
+  if [[ ! -f "$CLAW_DRIVE_HASHES" ]]; then
+    return 0
+  fi
+
+  # Escape path for use in grep/sed (handle special chars)
+  local escaped
+  escaped=$(printf '%s' "$relative_path" | sed 's/[.[\/*^$]/\\&/g')
+
+  local tmp
+  tmp=$(mktemp)
+  grep -v "  ${escaped}$" "$CLAW_DRIVE_HASHES" > "$tmp" || true
+  mv "$tmp" "$CLAW_DRIVE_HASHES"
+}
+
 # Show dedup stats
 dedup_status() {
   local format="${1:-table}"

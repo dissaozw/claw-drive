@@ -87,6 +87,24 @@ index_list() {
   fi
 }
 
+# Remove a file entry from INDEX.md by relative path
+index_remove() {
+  local relative_path="$1"
+
+  if [[ ! -f "$CLAW_DRIVE_INDEX" ]]; then
+    return 1
+  fi
+
+  # Escape path for grep (handle special chars in filenames)
+  local escaped
+  escaped=$(printf '%s' "$relative_path" | sed 's/[.[\/*^$]/\\&/g')
+
+  local tmp
+  tmp=$(mktemp)
+  grep -v "$escaped" "$CLAW_DRIVE_INDEX" > "$tmp" || true
+  mv "$tmp" "$CLAW_DRIVE_INDEX"
+}
+
 # List all unique tags
 index_tags() {
   local format="${1:-table}"

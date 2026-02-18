@@ -95,6 +95,39 @@ assert "store with --name" bash "$CLI" store "$TEST_DIR/file_17---8c1ee63d.txt" 
 assert "custom name file exists" test -f "$TEST_DIR/documents/custom-name.txt"
 assert_output "custom name in INDEX" "custom-name.txt" grep "custom-name" "$TEST_DIR/INDEX.md"
 
+# --- Delete ---
+echo ""
+echo "Delete:"
+# Store a file to delete
+echo "delete me" > "$TEST_DIR/deletable.txt"
+assert "store file for deletion" bash "$CLI" store "$TEST_DIR/deletable.txt" \
+  --category misc --desc "File to be deleted" --tags "delete-test" --source manual
+assert "deletable file exists" test -f "$TEST_DIR/misc/deletable.txt"
+assert_output "deletable in INDEX" "deletable" grep "deletable" "$TEST_DIR/INDEX.md"
+assert_output "deletable in hashes" "deletable" grep "deletable" "$TEST_DIR/.hashes"
+
+# Delete with --force (skip prompt)
+assert "delete with --force" bash "$CLI" delete misc/deletable.txt --force
+assert "file removed from disk" test ! -f "$TEST_DIR/misc/deletable.txt"
+assert_output "removed from INDEX" "No files found" bash "$CLI" search "deletable"
+# Verify hash removed
+if grep -q "deletable" "$TEST_DIR/.hashes" 2>/dev/null; then
+  echo "  ❌ hash not removed from ledger"
+  ((failed++)) || true
+else
+  echo "  ✅ hash removed from ledger"
+  ((passed++)) || true
+fi
+
+# Delete nonexistent file
+assert_output "delete nonexistent fails" "not found" bash "$CLI" delete misc/nope.txt --force || true
+
+# Delete with --json
+echo "json delete" > "$TEST_DIR/jsondelete.txt"
+bash "$CLI" store "$TEST_DIR/jsondelete.txt" \
+  --category misc --desc "JSON delete test" --tags "test" --source manual >/dev/null
+assert_output "delete --json output" "deleted" bash "$CLI" delete misc/jsondelete.txt --force --json
+
 # --- Search ---
 echo ""
 echo "Search:"
