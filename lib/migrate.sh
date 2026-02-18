@@ -140,9 +140,15 @@ migrate_apply() {
       date_str=$(date +%Y-%m-%d)
       local index_row="| $date_str | $category/$new_name | $description | $tags | migration |"
       if grep -q '^---$' "$CLAW_DRIVE_INDEX"; then
-        sed -i '' "/^---$/i\\
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          sed -i '' "/^---$/i\\
 $index_row
 " "$CLAW_DRIVE_INDEX"
+        else
+          sed -i "/^---$/i\\
+$index_row
+" "$CLAW_DRIVE_INDEX"
+        fi
       else
         echo "$index_row" >> "$CLAW_DRIVE_INDEX"
       fi

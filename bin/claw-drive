@@ -146,11 +146,19 @@ cmd_store() {
   date_str=$(date +%Y-%m-%d)
   local index_row="| $date_str | $category/$basename | $description | ${tags:-} | ${source_name:-manual} |"
 
-  # Insert before the trailing --- line
+  # Insert before the trailing --- line (portable sed for macOS/Linux)
   if grep -q '^---$' "$CLAW_DRIVE_INDEX"; then
-    sed -i '' "/^---$/i\\
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      # macOS
+      sed -i '' "/^---$/i\\
 $index_row
 " "$CLAW_DRIVE_INDEX"
+    else
+      # Linux
+      sed -i "/^---$/i\\
+$index_row
+" "$CLAW_DRIVE_INDEX"
+    fi
   else
     echo "$index_row" >> "$CLAW_DRIVE_INDEX"
   fi
