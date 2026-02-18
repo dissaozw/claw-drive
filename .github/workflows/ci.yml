@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run tests
+        run: |
+          chmod +x test/test.sh
+          cd test && bash test.sh
+        
+      - name: Check shell scripts (optional)
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './lib'
+          severity: warning
+        continue-on-error: true
