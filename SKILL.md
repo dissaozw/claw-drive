@@ -25,6 +25,21 @@ Organize and retrieve personal files with auto-categorization and a searchable i
 - **rclone** — Google Drive sync (optional): `brew install rclone`
 - **fswatch** — file watch daemon (optional): `brew install fswatch`
 
+## ⚠️ CLI Usage — Read This Before Running Anything
+
+**ALWAYS use the `claw-drive` CLI. NEVER use `cp`, `mv`, or direct file writes to `~/claw-drive/`.**
+
+The CLI handles copying, hashing, deduplication, and index updates atomically. Bypassing it causes:
+- Files stored without hash registration → dedup breaks silently
+- INDEX.md out of sync with actual files
+- Version confusion when replacing files
+
+**PATH note:** `~/.local/bin` may not be in the agent shell's PATH. If `claw-drive` is not found, use the full path:
+```bash
+~/.local/bin/claw-drive store ...
+```
+If the symlink is broken (e.g. after renaming the skill directory), re-run `make install` from `~/.openclaw/skills/claw-drive/` to fix it.
+
 ## Setup
 
 ```bash
@@ -55,11 +70,12 @@ When receiving a file (email attachment, Telegram upload, etc.):
 4. **Name** — choose a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
 5. **Describe** — write a rich description using extracted content (or user-provided description for sensitive files). Include key details (dates, amounts, IDs, names) so the file is findable by any relevant search term. Don't be vague — "insurance card" is bad, "Acme Insurance ID cards - 2024 Honda Civic, Policy ****3441, effective 1/21/2026–7/21/2026" is good.
 6. **Tag** — include specific tags from extracted content (model names, policy numbers, VINs, entity names) in addition to category tags
-7. **Store** — run the CLI:
+7. **Store** — run the CLI (use full path if `claw-drive` not in PATH):
    ```bash
-   claw-drive store <file> --category <cat> --name "clean-name.ext" --desc "Rich description with key details" --tags "tag1, tag2" --source telegram
+   ~/.local/bin/claw-drive store <file> --category <cat> --name "clean-name.ext" --desc "Rich description with key details" --tags "tag1, tag2" --source telegram
    ```
-7. **Report** — tell the user: path, category, tags, key extracted details, and what was indexed
+   ⚠️ **Do NOT use `cp` or write files directly to `~/claw-drive/`.** The CLI is the only correct way to store files — it handles copying, hashing, dedup, and index updates atomically.
+8. **Report** — tell the user: path, category, tags, key extracted details, and what was indexed
 
 The CLI handles copying, hashing, deduplication, and index updates automatically. If the file is a duplicate, it will be rejected.
 
