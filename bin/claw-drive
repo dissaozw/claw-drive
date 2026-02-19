@@ -449,7 +449,7 @@ case "${1:-help}" in
   init)     shift; cmd_init "$@" ;;
   store)    shift; cmd_store "$@" ;;
   update)   shift; cmd_update "$@" ;;
-  delete)   shift; cmd_delete "$@" ;;
+  delete|rm) shift; cmd_delete "$@" ;;
   status)   shift; cmd_status "$@" ;;
   verify)   shift; cmd_verify "$@" ;;
   migrate)  shift; cmd_migrate "$@" ;;
