@@ -152,6 +152,8 @@ You ← natural language → AI Agent (OpenClaw)
 
 ## Categories
 
+Categories are open-ended — agents create new ones as needed. These are the defaults:
+
 | Category | Use for |
 |----------|---------|
 | `documents/` | General docs, letters, forms, manuals |

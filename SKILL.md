@@ -139,6 +139,8 @@ claw-drive store doc.pdf -c contracts -n "apartment-lease-2026.pdf" \
 
 ### Categories
 
+Categories are **not fixed** — the agent can create any category that makes sense. The CLI does `mkdir -p` automatically. These are the defaults created by `init`, but use whatever fits:
+
 | Category | Use for |
 |----------|---------|
 | documents | General docs, letters, forms, manuals |
@@ -151,6 +153,8 @@ claw-drive store doc.pdf -c contracts -n "apartment-lease-2026.pdf" \
 | contracts | Leases, employment agreements, legal docs |
 | photos | Personal photos, document scans |
 | misc | Anything that doesn't fit above |
+
+Need `housing/`, `work/`, `pets/`? Just use it — the directory is created on first store.
 
 **When in doubt:** `misc/` is fine. Better to store it somewhere than not at all.
 
