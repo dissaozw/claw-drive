@@ -79,7 +79,7 @@ Just ask in natural language:
 > *"Show me all invoices from January"*
 > *"Do I have a copy of my W-2?"*
 
-The agent searches INDEX.md by description, tags, path, and date — then delivers the file.
+The agent reads INDEX.md directly — its semantic understanding beats any grep. It finds files by meaning, not string matching.
 
 ### What you never have to do
 
@@ -90,15 +90,12 @@ The agent searches INDEX.md by description, tags, path, and date — then delive
 
 ## CLI Reference
 
-The CLI is the interface agents use under the hood. All commands support `--json` for machine-readable output.
+The CLI handles **write operations** — store, sync, migrate — where atomicity matters (dedup + index updates). For **read operations** (search, list, tags), the agent reads INDEX.md directly.
 
 | Command | Description |
 |---------|-------------|
 | `claw-drive init` | Initialize drive directory and INDEX.md |
 | `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, and optional rename (`--name`) |
-| `claw-drive search <query>` | Search files by description, tags, or path |
-| `claw-drive list` | List all indexed files |
-| `claw-drive tags` | List all tags with usage counts |
 | `claw-drive status` | Show drive status (files, size, sync) |
 | `claw-drive sync auth` | Authorize Google Drive (one-time, opens browser) |
 | `claw-drive sync setup` | Check sync dependencies and config |
@@ -214,7 +211,8 @@ Claw Drive's agent **always asks before reading**. And if you don't answer, it a
 
 ## Roadmap
 
-- [ ] Full-text search (PDF/image text extraction at store time)
+- [ ] `update` command — modify description/tags on existing entries
+- [ ] `delete` command — remove files with atomic index cleanup
 - [ ] Watch folder ingestion (auto-import from Downloads)
 - [ ] Encrypted storage for sensitive categories
 - [ ] Linux support (inotifywait + systemd)

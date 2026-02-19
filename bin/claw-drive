@@ -173,39 +173,6 @@ $index_row
   fi
 }
 
-cmd_search() {
-  local query="" format="table"
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --json) format="json"; shift ;;
-      *) query="$1"; shift ;;
-    esac
-  done
-
-  if [[ -z "$query" ]]; then
-    echo "❌ Usage: claw-drive search <query> [--json]"
-    return 1
-  fi
-
-  claw_drive_init || return 1
-  index_search "$query" "$format"
-}
-
-cmd_list() {
-  local format="table"
-  [[ "${1:-}" == "--json" ]] && format="json"
-  claw_drive_init || return 1
-  index_list "$format"
-}
-
-cmd_tags() {
-  local format="table"
-  [[ "${1:-}" == "--json" ]] && format="json"
-  claw_drive_init || return 1
-  index_tags "$format"
-}
-
 cmd_status() {
   local format="table"
   [[ "${1:-}" == "--json" ]] && format="json"
@@ -313,9 +280,6 @@ Usage: claw-drive <command> [options]
 Commands:
   init [path]                   Initialize drive at path (default: ~/claw-drive)
   store <file> [options]        Store a file with categorization
-  search <query> [--json]       Search files by description, tags, or path
-  list [--json]                 List all indexed files
-  tags [--json]                 List all tags with usage counts
   status [--json]               Show drive status
   migrate <subcommand>          Migrate files from existing directory
   sync auth                     Authorize Google Drive (one-time)
@@ -343,9 +307,6 @@ EOF
 case "${1:-help}" in
   init)     shift; cmd_init "$@" ;;
   store)    shift; cmd_store "$@" ;;
-  search)   shift; cmd_search "$@" ;;
-  list)     shift; cmd_list "$@" ;;
-  tags)     shift; cmd_tags "$@" ;;
   status)   shift; cmd_status "$@" ;;
   migrate)  shift; cmd_migrate "$@" ;;
   sync)     shift; cmd_sync "$@" ;;

@@ -83,12 +83,13 @@ The `--name` flag lets you override the original filename (which may be ugly lik
 
 ### Retrieving a file
 
-When asked to find a file:
+When asked to find a file, **read INDEX.md directly** — do NOT use a CLI search command.
 
-1. **Search** — `claw-drive search "<query>"` searches descriptions, tags, and paths
-2. **List** — `claw-drive list` shows all indexed files
-3. **Tags** — `claw-drive tags` shows all tags with usage counts
-4. **Deliver** — send via message tool or provide the path
+1. **Read** — `read ~/claw-drive/INDEX.md` (the agent reads the full index)
+2. **Match** — use semantic understanding to find the right file (handles typos, synonyms, partial matches — far better than grep)
+3. **Deliver** — send via message tool or provide the full path (`~/claw-drive/<category>/<filename>`)
+
+INDEX.md is a small structured markdown table designed for agent consumption. The agent's native comprehension is strictly better than any CLI grep-based search.
 
 ### Tagging
 
@@ -99,7 +100,7 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 - Lowercase, single words or short hyphenated phrases
 - Always include the category name as a tag (e.g. `medical` for files in `medical/`)
 - Add cross-cutting tags for things like: entity names (`sorbet`), document type (`invoice`, `receipt`, `report`), context (`emergency`, `tax-2025`)
-- Reuse existing tags when possible — check `claw-drive tags` before inventing new ones
+- Reuse existing tags when possible — read INDEX.md to see existing tags before inventing new ones
 
 **Examples:**
 ```bash

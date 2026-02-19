@@ -95,24 +95,11 @@ assert "store with --name" bash "$CLI" store "$TEST_DIR/file_17---8c1ee63d.txt" 
 assert "custom name file exists" test -f "$TEST_DIR/documents/custom-name.txt"
 assert_output "custom name in INDEX" "custom-name.txt" grep "custom-name" "$TEST_DIR/INDEX.md"
 
-# --- Search ---
+# --- Index readable ---
 echo ""
-echo "Search:"
-assert_output "search by description" "testfile" bash "$CLI" search "test document"
-assert_output "search by tag" "testfile" bash "$CLI" search "document"
-assert_output "search no results" "No files found" bash "$CLI" search "nonexistent"
-
-# --- List ---
-echo ""
-echo "List:"
-assert_output "list shows files" "testfile" bash "$CLI" list
-assert_output "list json valid" "date" bash "$CLI" list --json
-
-# --- Tags ---
-echo ""
-echo "Tags:"
-assert_output "tags shows test" "test" bash "$CLI" tags
-assert_output "tags json valid" "tag" bash "$CLI" tags --json
+echo "Index (agent reads directly):"
+assert_output "INDEX.md has stored files" "testfile" cat "$TEST_DIR/INDEX.md"
+assert_output "INDEX.md has tags" "test, document" cat "$TEST_DIR/INDEX.md"
 
 # --- Status ---
 echo ""
