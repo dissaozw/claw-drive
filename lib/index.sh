@@ -101,7 +101,7 @@ index_remove() {
 
   local tmp
   tmp=$(mktemp)
-  grep -v "$escaped" "$CLAW_DRIVE_INDEX" > "$tmp" || true
+  grep -v "| ${escaped} |" "$CLAW_DRIVE_INDEX" > "$tmp" || true
   mv "$tmp" "$CLAW_DRIVE_INDEX"
 }
 

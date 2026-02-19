@@ -55,7 +55,7 @@ dedup_unregister() {
 
   local tmp
   tmp=$(mktemp)
-  grep -v "  ${escaped}$" "$CLAW_DRIVE_HASHES" > "$tmp" || true
+  grep -v "^[^ ]*  ${escaped}$" "$CLAW_DRIVE_HASHES" > "$tmp" || true
   mv "$tmp" "$CLAW_DRIVE_HASHES"
 }
 

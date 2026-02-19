@@ -122,6 +122,24 @@ fi
 # Delete nonexistent file
 assert_output "delete nonexistent fails" "not found" bash "$CLI" delete misc/nope.txt --force || true
 
+# Overlapping filename test: deleting misc/report.txt must not remove documents/report.txt
+echo "misc report" > "$TEST_DIR/report.txt"
+assert "store misc/report.txt" bash "$CLI" store "$TEST_DIR/report.txt" \
+  --category misc --desc "misc report" --tags "overlap-test" --source manual
+echo "documents report" > "$TEST_DIR/report2.txt"
+assert "store documents/report.txt" bash "$CLI" store "$TEST_DIR/report2.txt" \
+  --category documents --name "report.txt" --desc "documents report" --tags "overlap-test" --source manual
+assert "delete misc/report.txt" bash "$CLI" delete misc/report.txt --force
+assert "documents/report.txt still on disk" test -f "$TEST_DIR/documents/report.txt"
+assert_output "documents/report.txt still in INDEX" "documents/report.txt" grep "documents/report\.txt" "$TEST_DIR/INDEX.md"
+if grep -q "misc/report\.txt" "$TEST_DIR/INDEX.md" 2>/dev/null; then
+  echo "  ❌ misc/report.txt still in INDEX after delete"
+  ((failed++)) || true
+else
+  echo "  ✅ misc/report.txt correctly removed from INDEX"
+  ((passed++)) || true
+fi
+
 # Delete with --json
 echo "json delete" > "$TEST_DIR/jsondelete.txt"
 bash "$CLI" store "$TEST_DIR/jsondelete.txt" \
