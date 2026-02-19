@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI="$SCRIPT_DIR/../bin/claw-drive"
 TEST_DIR=$(mktemp -d)
+SRC_DIR=$(mktemp -d)
 export CLAW_DRIVE_DIR="$TEST_DIR"
 export CLAW_DRIVE_CONFIG_FILE="$TEST_DIR/.config"
 
@@ -56,7 +57,7 @@ assert_jq() {
 }
 
 cleanup() {
-  rm -rf "$TEST_DIR"
+  rm -rf "$TEST_DIR" "$SRC_DIR"
 }
 trap cleanup EXIT
 
@@ -82,8 +83,8 @@ assert "misc/ exists" test -d "$TEST_DIR/misc"
 # --- Store ---
 echo ""
 echo "Store:"
-echo "test content" > "$TEST_DIR/testfile.txt"
-assert "store a file" bash "$CLI" store "$TEST_DIR/testfile.txt" \
+echo "test content" > "$SRC_DIR/testfile.txt"
+assert "store a file" bash "$CLI" store "$SRC_DIR/testfile.txt" \
   --category documents --desc "Test document for unit tests" --tags "test, document" --source manual
 assert "file copied to category" test -f "$TEST_DIR/documents/testfile.txt"
 
@@ -98,8 +99,8 @@ assert_output "hash in ledger" "testfile" cat "$TEST_DIR/.hashes"
 # --- Pipe character in description (the bug that killed INDEX.md) ---
 echo ""
 echo "Pipe in description:"
-echo "pipe test" > "$TEST_DIR/pipefile.txt"
-assert "store with | in desc" bash "$CLI" store "$TEST_DIR/pipefile.txt" \
+echo "pipe test" > "$SRC_DIR/pipefile.txt"
+assert "store with | in desc" bash "$CLI" store "$SRC_DIR/pipefile.txt" \
   --category documents --desc "File with | pipe | chars" --tags "test" --source manual
 # Verify the pipe chars survived
 local_desc=$(jq -r 'select(.path=="documents/pipefile.txt") | .desc' "$TEST_DIR/INDEX.jsonl")
@@ -114,26 +115,26 @@ fi
 # --- Dedup ---
 echo ""
 echo "Dedup:"
-assert_output "duplicate rejected" "duplicate" bash "$CLI" store "$TEST_DIR/testfile.txt" \
+assert_output "duplicate rejected" "duplicate" bash "$CLI" store "$SRC_DIR/testfile.txt" \
   --category documents --desc "Duplicate" --tags "dupe" --source manual || true
 
-echo "different content" > "$TEST_DIR/testfile2.txt"
-assert "different file stores fine" bash "$CLI" store "$TEST_DIR/testfile2.txt" \
+echo "different content" > "$SRC_DIR/testfile2.txt"
+assert "different file stores fine" bash "$CLI" store "$SRC_DIR/testfile2.txt" \
   --category finance --desc "Finance doc" --tags "finance, test" --source email
 
 # --- Store with --name ---
 echo ""
 echo "Store --name:"
-echo "ugly content" > "$TEST_DIR/file_17---8c1ee63d.txt"
-assert "store with --name" bash "$CLI" store "$TEST_DIR/file_17---8c1ee63d.txt" \
+echo "ugly content" > "$SRC_DIR/file_17---8c1ee63d.txt"
+assert "store with --name" bash "$CLI" store "$SRC_DIR/file_17---8c1ee63d.txt" \
   --category documents --desc "Clean named file" --tags "test" --name "custom-name.txt"
 assert "custom name file exists" test -f "$TEST_DIR/documents/custom-name.txt"
 
 # --- New category (agent creates freely) ---
 echo ""
 echo "Dynamic categories:"
-echo "housing doc" > "$TEST_DIR/lease.txt"
-assert "store to new category" bash "$CLI" store "$TEST_DIR/lease.txt" \
+echo "housing doc" > "$SRC_DIR/lease.txt"
+assert "store to new category" bash "$CLI" store "$SRC_DIR/lease.txt" \
   --category housing --desc "Lease agreement" --tags "housing, lease" --source manual
 assert "new category dir created" test -d "$TEST_DIR/housing"
 assert "file in new category" test -f "$TEST_DIR/housing/lease.txt"
@@ -185,6 +186,18 @@ else
 fi
 
 assert_output "delete nonexistent fails" "Not found" bash "$CLI" delete "nonexistent.txt" --force
+
+# --- Verify ---
+echo ""
+echo "Verify:"
+assert_output "verify clean" "All clear" bash "$CLI" verify
+
+# Create an orphan file
+echo "orphan" > "$TEST_DIR/documents/orphan.txt"
+assert_output "verify catches orphan" "Orphan file" bash "$CLI" verify
+
+# Clean up orphan
+rm "$TEST_DIR/documents/orphan.txt"
 
 # --- Status ---
 echo ""

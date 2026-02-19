@@ -248,6 +248,96 @@ cmd_status() {
   sync_status "$format"
 }
 
+cmd_verify() {
+  local fix=false
+  [[ "${1:-}" == "--fix" ]] && fix=true
+
+  claw_drive_init || return 1
+
+  echo "🔍 Verifying Claw Drive integrity..."
+  echo ""
+
+  local orphans=0 missing=0 hash_orphans=0 hash_missing=0
+
+  # 1. Check indexed paths exist on disk
+  while IFS= read -r line; do
+    local path
+    path=$(printf '%s' "$line" | jq -r '.path')
+    local full="$CLAW_DRIVE_DIR/$path"
+    if [[ ! -e "$full" ]]; then
+      echo "  ❌ Missing on disk: $path"
+      ((missing++)) || true
+    fi
+  done < "$CLAW_DRIVE_INDEX"
+
+  # 2. Check disk files are in index
+  local indexed_paths
+  indexed_paths=$(jq -r '.path' "$CLAW_DRIVE_INDEX")
+
+  while IFS= read -r -d '' filepath; do
+    local basename
+    basename=$(basename "$filepath")
+    [[ "$basename" == .* || "$basename" == "INDEX.jsonl" || "$basename" == "INDEX.md" ]] && continue
+
+    local rel="${filepath#$CLAW_DRIVE_DIR/}"
+
+    # Check if this file is indexed directly or inside an indexed directory
+    local found=false
+    while IFS= read -r idx_path; do
+      if [[ "$rel" == "$idx_path" ]]; then
+        found=true
+        break
+      fi
+      # Check if file is inside an indexed directory
+      if [[ -d "$CLAW_DRIVE_DIR/$idx_path" && "$rel" == "$idx_path"* ]]; then
+        found=true
+        break
+      fi
+    done <<< "$indexed_paths"
+
+    if [[ "$found" == "false" ]]; then
+      echo "  ⚠️  Orphan file (not indexed): $rel"
+      ((orphans++)) || true
+    fi
+  done < <(find "$CLAW_DRIVE_DIR" -type f -not -path '*/.git/*' -not -name '.*' -not -name 'INDEX.jsonl' -not -name 'INDEX.md' -print0 | sort -z)
+
+  # 3. Check hash consistency
+  while IFS= read -r line; do
+    local path
+    path=$(printf '%s' "$line" | jq -r '.path')
+    local full="$CLAW_DRIVE_DIR/$path"
+
+    if [[ -f "$full" ]]; then
+      local expected_hash
+      expected_hash=$(grep "  ${path}$" "$CLAW_DRIVE_HASHES" 2>/dev/null | head -1 | awk '{print $1}')
+      if [[ -z "$expected_hash" ]]; then
+        echo "  ⚠️  No hash registered: $path"
+        ((hash_missing++)) || true
+      else
+        local actual_hash
+        actual_hash=$(shasum -a 256 "$full" | awk '{print $1}')
+        if [[ "$expected_hash" != "$actual_hash" ]]; then
+          echo "  ⚠️  Hash mismatch: $path"
+          ((hash_orphans++)) || true
+        fi
+      fi
+    fi
+  done < "$CLAW_DRIVE_INDEX"
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  local total=$((orphans + missing + hash_orphans + hash_missing))
+  if [[ $total -eq 0 ]]; then
+    echo "✅ All clear — index, disk, and hashes are aligned."
+  else
+    echo "Issues found:"
+    [[ $missing -gt 0 ]] && echo "  ❌ Missing on disk: $missing"
+    [[ $orphans -gt 0 ]] && echo "  ⚠️  Orphan files: $orphans"
+    [[ $hash_missing -gt 0 ]] && echo "  ⚠️  Missing hashes: $hash_missing"
+    [[ $hash_orphans -gt 0 ]] && echo "  ⚠️  Hash mismatches: $hash_orphans"
+  fi
+}
+
 cmd_sync() {
   local subcmd="${1:-help}"
   shift || true
@@ -331,6 +421,7 @@ Commands:
   update <path> [options]       Update description/tags on an entry
   delete <path> [--force]       Delete a file and its index entry
   status [--json]               Show drive status
+  verify                        Check index ↔ disk ↔ hash consistency
   migrate <subcommand>          Migrate files from existing directory
   sync auth                     Authorize Google Drive (one-time)
   sync <subcommand>             Manage Google Drive sync
@@ -360,6 +451,7 @@ case "${1:-help}" in
   update)   shift; cmd_update "$@" ;;
   delete)   shift; cmd_delete "$@" ;;
   status)   shift; cmd_status "$@" ;;
+  verify)   shift; cmd_verify "$@" ;;
   migrate)  shift; cmd_migrate "$@" ;;
   sync)     shift; cmd_sync "$@" ;;
   version|--version|-v) cmd_version ;;
