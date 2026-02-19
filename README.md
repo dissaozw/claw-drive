@@ -56,7 +56,7 @@ Send a file to your agent (Telegram, email, etc.) and it handles everything:
 4. **Names** it with a descriptive, date-stamped filename
 5. **Checks for duplicates** by content hash
 6. **Tags** it for cross-category search with specific identifiers
-7. **Indexes** it in INDEX.md with a rich, searchable description
+7. **Indexes** it in INDEX.jsonl with a rich, searchable description
 8. **Reports** back what it did
 
 > 📎 *"Here's my auto insurance card"*
@@ -79,7 +79,7 @@ Just ask in natural language:
 > *"Show me all invoices from January"*
 > *"Do I have a copy of my W-2?"*
 
-The agent reads INDEX.md directly — its semantic understanding beats any grep. It finds files by meaning, not string matching.
+The agent reads INDEX.jsonl directly — its semantic understanding beats any grep. It finds files by meaning, not string matching.
 
 ### What you never have to do
 
@@ -90,12 +90,14 @@ The agent reads INDEX.md directly — its semantic understanding beats any grep.
 
 ## CLI Reference
 
-The CLI handles **write operations** — store, sync, migrate — where atomicity matters (dedup + index updates). For **read operations** (search, list, tags), the agent reads INDEX.md directly.
+The CLI handles **write operations** — store, sync, migrate — where atomicity matters (dedup + index updates). For **read operations** (search, list, tags), the agent reads INDEX.jsonl directly.
 
 | Command | Description |
 |---------|-------------|
-| `claw-drive init` | Initialize drive directory and INDEX.md |
+| `claw-drive init` | Initialize drive directory and INDEX.jsonl |
 | `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, and optional rename (`--name`) |
+| `claw-drive update <path> [opts]` | Update description and/or tags on an existing entry |
+| `claw-drive delete <path> [--force]` | Delete a file, its index entry, and dedup hash |
 | `claw-drive status` | Show drive status (files, size, sync) |
 | `claw-drive sync auth` | Authorize Google Drive (one-time, opens browser) |
 | `claw-drive sync setup` | Check sync dependencies and config |
@@ -190,7 +192,7 @@ Claw Drive's agent **always asks before reading**. And if you don't answer, it a
 
 - File contents are **never read** by the agent
 - Classification uses **filename and user input only**
-- INDEX.md descriptions are kept **generic** (no SSNs, account numbers, etc.)
+- INDEX.jsonl descriptions are kept **generic** (no SSNs, account numbers, etc.)
 - `identity/` is **excluded from cloud sync** by default
 - The file is still stored, hashed (for dedup), tagged, and indexed — just without content extraction
 
@@ -213,8 +215,8 @@ Claw Drive's agent **always asks before reading**. And if you don't answer, it a
 
 ## Roadmap
 
-- [ ] `update` command — modify description/tags on existing entries
-- [ ] `delete` command — remove files with atomic index cleanup
+- [x] `update` command — modify description/tags on existing entries
+- [x] `delete` command — remove files with atomic index cleanup
 - [ ] Watch folder ingestion (auto-import from Downloads)
 - [ ] Encrypted storage for sensitive categories
 - [ ] Linux support (inotifywait + systemd)

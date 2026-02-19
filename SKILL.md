@@ -83,13 +83,29 @@ The `--name` flag lets you override the original filename (which may be ugly lik
 
 ### Retrieving a file
 
-When asked to find a file, **read INDEX.md directly** — do NOT use a CLI search command.
+When asked to find a file, **read INDEX.jsonl directly** — do NOT use a CLI search command.
 
-1. **Read** — `read ~/claw-drive/INDEX.md` (the agent reads the full index)
+1. **Read** — `read ~/claw-drive/INDEX.jsonl` (the agent reads the full index)
 2. **Match** — use semantic understanding to find the right file (handles typos, synonyms, partial matches — far better than grep)
 3. **Deliver** — send via message tool or provide the full path (`~/claw-drive/<category>/<filename>`)
 
-INDEX.md is a small structured markdown table designed for agent consumption. The agent's native comprehension is strictly better than any CLI grep-based search.
+INDEX.jsonl is a JSONL file — one JSON object per line. Each entry has `date`, `path`, `desc`, `tags` (array), and `source`. The agent's native comprehension is strictly better than any CLI grep-based search.
+
+### Updating an entry
+
+```bash
+~/.local/bin/claw-drive update <path> --desc "new description" --tags "new, tags"
+```
+
+Both `--desc` and `--tags` are optional (at least one required). Uses `jq` for atomic rewrite.
+
+### Deleting a file
+
+```bash
+~/.local/bin/claw-drive delete <path> --force
+```
+
+Without `--force`, shows what would be deleted (dry run). With `--force`, removes file + index entry + dedup hash.
 
 ### Tagging
 
@@ -220,7 +236,7 @@ Use the `exclude` list in `.sync-config` to keep sensitive directories local-onl
 
 ## Tips
 
-- The CLI maintains INDEX.md automatically — don't edit it manually
+- The CLI maintains INDEX.jsonl automatically — don't edit it manually
 - PDF text extraction: `uv run --with pymupdf python3 -c "import pymupdf; ..."`
 - Use `claw-drive status` to see file counts, size, and sync status
 

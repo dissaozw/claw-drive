@@ -1,9 +1,91 @@
 #!/usr/bin/env bash
-# lib/index.sh — INDEX.md management for Claw Drive
+# lib/index.sh — INDEX.jsonl management for Claw Drive
 #
-# INDEX.md is a structured markdown table designed for direct agent consumption.
-# Agents should read the file directly for search/list/tag operations —
-# their semantic understanding is strictly better than grep-based search.
-#
-# This library is reserved for future write operations (update, delete)
-# that need atomic index manipulation.
+# INDEX.jsonl is a structured JSONL file — one JSON object per line.
+# Agents read it directly for search/list/tag operations.
+# This library handles atomic write operations (add, update, delete).
+
+# Append a new entry to the index
+index_add() {
+  local date="$1" path="$2" desc="$3" tags="$4" source="$5"
+
+  # Convert comma-separated tags to JSON array
+  local tags_json
+  tags_json=$(printf '%s' "$tags" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";""))')
+
+  jq -cn \
+    --arg date "$date" \
+    --arg path "$path" \
+    --arg desc "$desc" \
+    --argjson tags "$tags_json" \
+    --arg source "$source" \
+    '{date:$date, path:$path, desc:$desc, tags:$tags, source:$source}' \
+    >> "$CLAW_DRIVE_INDEX"
+}
+
+# Remove an entry by path (exact match)
+index_remove() {
+  local target_path="$1"
+  local tmp
+  tmp=$(mktemp)
+
+  jq -c "select(.path != \"$target_path\")" "$CLAW_DRIVE_INDEX" > "$tmp"
+  mv "$tmp" "$CLAW_DRIVE_INDEX"
+}
+
+# Update fields on an entry by path (exact match)
+# Usage: index_update <path> [--desc <desc>] [--tags <tags>]
+index_update() {
+  local target_path="$1"
+  shift
+
+  local new_desc="" new_tags=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --desc|-d) new_desc="$2"; shift 2 ;;
+      --tags|-t) new_tags="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  local tmp
+  tmp=$(mktemp)
+
+  local jq_filter='if .path == $path then'
+  local jq_args
+  jq_args=(--arg path "$target_path")
+
+  if [[ -n "$new_desc" ]]; then
+    jq_filter="$jq_filter .desc = \$desc |"
+    jq_args+=(--arg desc "$new_desc")
+  fi
+
+  if [[ -n "$new_tags" ]]; then
+    local tags_json
+    tags_json=$(printf '%s' "$new_tags" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";""))')
+    jq_filter="$jq_filter .tags = \$tags |"
+    jq_args+=(--argjson tags "$tags_json")
+  fi
+
+  # Remove trailing pipe if present
+  jq_filter="${jq_filter% |}"
+  jq_filter="$jq_filter else . end"
+
+  jq -c "${jq_args[@]}" "$jq_filter" "$CLAW_DRIVE_INDEX" > "$tmp"
+  mv "$tmp" "$CLAW_DRIVE_INDEX"
+}
+
+# Check if a path exists in the index
+index_has() {
+  local target_path="$1"
+  jq -e --arg p "$target_path" 'select(.path == $p)' "$CLAW_DRIVE_INDEX" > /dev/null 2>&1
+}
+
+# Dedup: remove hash entry for a path
+dedup_unregister() {
+  local target_path="$1"
+  local tmp
+  tmp=$(mktemp)
+  grep -v "  ${target_path}$" "$CLAW_DRIVE_HASHES" > "$tmp" || true
+  mv "$tmp" "$CLAW_DRIVE_HASHES"
+}

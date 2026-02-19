@@ -135,23 +135,10 @@ migrate_apply() {
       cp "$full_source" "$dest"
       dedup_register "$dest" "$category/$new_name"
 
-      # Update INDEX.md
+      # Update index
       local date_str
       date_str=$(date +%Y-%m-%d)
-      local index_row="| $date_str | $category/$new_name | $description | $tags | migration |"
-      if grep -q '^---$' "$CLAW_DRIVE_INDEX"; then
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-          sed -i '' "/^---$/i\\
-$index_row
-" "$CLAW_DRIVE_INDEX"
-        else
-          sed -i "/^---$/i\\
-$index_row
-" "$CLAW_DRIVE_INDEX"
-        fi
-      else
-        echo "$index_row" >> "$CLAW_DRIVE_INDEX"
-      fi
+      index_add "$date_str" "$category/$new_name" "$description" "$tags" "migration"
 
       echo "  ✅ $src_path → $category/$new_name"
     fi

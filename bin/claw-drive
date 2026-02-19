@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-CLAW_DRIVE_VERSION="0.2.0"
+CLAW_DRIVE_VERSION="0.3.0"
 # Resolve symlinks to find the real script location
 CLAW_DRIVE_SCRIPT="${BASH_SOURCE[0]}"
 while [[ -L "$CLAW_DRIVE_SCRIPT" ]]; do
@@ -38,7 +38,7 @@ cmd_init() {
   fi
 
   # Update all derived paths
-  CLAW_DRIVE_INDEX="$CLAW_DRIVE_DIR/INDEX.md"
+  CLAW_DRIVE_INDEX="$CLAW_DRIVE_DIR/INDEX.jsonl"
   CLAW_DRIVE_HASHES="$CLAW_DRIVE_DIR/.hashes"
   CLAW_DRIVE_SYNC_CONFIG="$CLAW_DRIVE_DIR/.sync-config"
   CLAW_DRIVE_SYNC_STATE="$CLAW_DRIVE_DIR/.sync-state"
@@ -56,33 +56,10 @@ cmd_init() {
   done
 
   if [[ ! -f "$CLAW_DRIVE_INDEX" ]]; then
-    cat > "$CLAW_DRIVE_INDEX" <<'EOF'
-# 📁 Claw Drive — Personal File Index
-
-## Directory Structure
-- **documents/** — general docs, letters, forms
-- **finance/** — tax, bank statements, investment docs
-- **insurance/** — insurance policies, claims, coverage docs
-- **medical/** — health records, prescriptions
-- **travel/** — tickets, itineraries, visas, bookings
-- **identity/** — ID scans, certificates (⚠️ sensitive)
-- **receipts/** — purchase receipts, warranties, invoices
-- **contracts/** — leases, employment, legal agreements
-- **photos/** — personal photos, scans
-- **misc/** — anything that doesn't fit above
-
-## File Index
-<!-- Auto-maintained by Claw Drive. Format: date | path | description | tags | source -->
-
-| Date | Path | Description | Tags | Source |
-|------|------|-------------|------|--------|
-
----
-*Last updated: YYYY-MM-DD*
-EOF
-    echo "  📄 INDEX.md created"
+    touch "$CLAW_DRIVE_INDEX"
+    echo "  📄 INDEX.jsonl created"
   else
-    echo "  📄 INDEX.md exists"
+    echo "  📄 INDEX.jsonl exists"
   fi
 
   touch "$CLAW_DRIVE_HASHES"
@@ -144,24 +121,7 @@ cmd_store() {
   # Update index
   local date_str
   date_str=$(date +%Y-%m-%d)
-  local index_row="| $date_str | $category/$basename | $description | ${tags:-} | ${source_name:-manual} |"
-
-  # Insert before the trailing --- line (portable sed for macOS/Linux)
-  if grep -q '^---$' "$CLAW_DRIVE_INDEX"; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      # macOS
-      sed -i '' "/^---$/i\\
-$index_row
-" "$CLAW_DRIVE_INDEX"
-    else
-      # Linux
-      sed -i "/^---$/i\\
-$index_row
-" "$CLAW_DRIVE_INDEX"
-    fi
-  else
-    echo "$index_row" >> "$CLAW_DRIVE_INDEX"
-  fi
+  index_add "$date_str" "$category/$basename" "$description" "${tags:-}" "${source_name:-manual}"
 
   if [[ "${json_output:-}" == "true" ]]; then
     printf '{"status":"stored","path":"%s","category":"%s","tags":"%s","hash":"%s"}\n' \
@@ -171,6 +131,94 @@ $index_row
     [[ -n "$tags" ]] && echo "   Tags: $tags"
     echo "   Description: $description"
   fi
+}
+
+cmd_update() {
+  local target_path="" desc="" tags=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --desc|-d) desc="$2"; shift 2 ;;
+      --tags|-t) tags="$2"; shift 2 ;;
+      --json) shift ;;
+      *) target_path="$1"; shift ;;
+    esac
+  done
+
+  if [[ -z "$target_path" ]]; then
+    echo "❌ Usage: claw-drive update <path> [--desc <description>] [--tags <tags>]"
+    return 1
+  fi
+
+  if [[ -z "$desc" && -z "$tags" ]]; then
+    echo "❌ At least one of --desc or --tags is required"
+    return 1
+  fi
+
+  claw_drive_init || return 1
+
+  if ! index_has "$target_path"; then
+    echo "❌ Not found in index: $target_path"
+    return 1
+  fi
+
+  local update_args=()
+  [[ -n "$desc" ]] && update_args+=(--desc "$desc")
+  [[ -n "$tags" ]] && update_args+=(--tags "$tags")
+
+  index_update "$target_path" "${update_args[@]}"
+  echo "✅ Updated: $target_path"
+  [[ -n "$desc" ]] && echo "   Description: $desc" || true
+  [[ -n "$tags" ]] && echo "   Tags: $tags" || true
+}
+
+cmd_delete() {
+  local target_path="" force=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force|-f) force=true; shift ;;
+      *) target_path="$1"; shift ;;
+    esac
+  done
+
+  if [[ -z "$target_path" ]]; then
+    echo "❌ Usage: claw-drive delete <path> [--force]"
+    return 1
+  fi
+
+  claw_drive_init || return 1
+
+  if ! index_has "$target_path"; then
+    echo "❌ Not found in index: $target_path"
+    return 1
+  fi
+
+  local full_path="$CLAW_DRIVE_DIR/$target_path"
+
+  if [[ "$force" != "true" ]]; then
+    echo "⚠️  Will delete:"
+    echo "   File: $full_path"
+    echo "   Index entry: $target_path"
+    echo ""
+    echo "Run with --force to confirm."
+    return 0
+  fi
+
+  # Remove file
+  if [[ -f "$full_path" ]]; then
+    rm "$full_path"
+  elif [[ -d "$full_path" ]]; then
+    rm -rf "$full_path"
+  fi
+
+  # Remove from index
+  index_remove "$target_path"
+
+  # Remove from dedup ledger
+  dedup_unregister "$target_path"
+
+  echo "✅ Deleted: $target_path"
 }
 
 cmd_status() {
@@ -184,7 +232,7 @@ cmd_status() {
   if [[ -d "$CLAW_DRIVE_DIR" ]]; then
     local file_count
     file_count=$(find "$CLAW_DRIVE_DIR" -type f \
-      ! -name '.*' ! -name 'INDEX.md' ! -path '*/.git/*' | wc -l | xargs)
+      ! -name '.*' ! -name 'INDEX.jsonl' ! -name 'INDEX.md' ! -path '*/.git/*' | wc -l | xargs)
     echo "📄 Files: $file_count"
 
     local total_size
@@ -280,6 +328,8 @@ Usage: claw-drive <command> [options]
 Commands:
   init [path]                   Initialize drive at path (default: ~/claw-drive)
   store <file> [options]        Store a file with categorization
+  update <path> [options]       Update description/tags on an entry
+  delete <path> [--force]       Delete a file and its index entry
   status [--json]               Show drive status
   migrate <subcommand>          Migrate files from existing directory
   sync auth                     Authorize Google Drive (one-time)
@@ -307,6 +357,8 @@ EOF
 case "${1:-help}" in
   init)     shift; cmd_init "$@" ;;
   store)    shift; cmd_store "$@" ;;
+  update)   shift; cmd_update "$@" ;;
+  delete)   shift; cmd_delete "$@" ;;
   status)   shift; cmd_status "$@" ;;
   migrate)  shift; cmd_migrate "$@" ;;
   sync)     shift; cmd_sync "$@" ;;
