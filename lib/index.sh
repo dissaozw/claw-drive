@@ -81,11 +81,21 @@ index_has() {
   jq -e --arg p "$target_path" 'select(.path == $p)' "$CLAW_DRIVE_INDEX" > /dev/null 2>&1
 }
 
-# Dedup: remove hash entry for a path
+# Dedup: remove hash entry for a path (exact match, regex-safe)
 dedup_unregister() {
   local target_path="$1"
+
+  if [[ ! -f "$CLAW_DRIVE_HASHES" ]]; then
+    return 0
+  fi
+
   local tmp
   tmp=$(mktemp)
-  grep -v "  ${target_path}$" "$CLAW_DRIVE_HASHES" > "$tmp" || true
+  # Use shell parameter expansion to extract path from "hash  path" format,
+  # avoiding unescaped grep which breaks on regex special chars (., (, ), etc.)
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    local line_path="${line#*  }"
+    [[ "$line_path" != "$target_path" ]] && printf '%s\n' "$line"
+  done < "$CLAW_DRIVE_HASHES" > "$tmp"
   mv "$tmp" "$CLAW_DRIVE_HASHES"
 }

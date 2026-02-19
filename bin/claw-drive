@@ -257,7 +257,7 @@ cmd_verify() {
   echo "🔍 Verifying Claw Drive integrity..."
   echo ""
 
-  local orphans=0 missing=0 hash_orphans=0 hash_missing=0
+  local orphans=0 missing=0 hash_orphans=0 hash_missing=0 fixed=0
 
   # 1. Check indexed paths exist on disk
   while IFS= read -r line; do
@@ -267,10 +267,16 @@ cmd_verify() {
     if [[ ! -e "$full" ]]; then
       echo "  ❌ Missing on disk: $path"
       ((missing++)) || true
+      if [[ "$fix" == "true" ]]; then
+        index_remove "$path"
+        dedup_unregister "$path"
+        echo "     🔧 Fixed: removed stale index entry"
+        ((fixed++)) || true
+      fi
     fi
   done < "$CLAW_DRIVE_INDEX"
 
-  # 2. Check disk files are in index
+  # 2. Check disk files are in index (orphans — cannot auto-fix without metadata)
   local indexed_paths
   indexed_paths=$(jq -r '.path' "$CLAW_DRIVE_INDEX")
 
@@ -309,10 +315,21 @@ cmd_verify() {
 
     if [[ -f "$full" ]]; then
       local expected_hash
-      expected_hash=$(grep "  ${path}$" "$CLAW_DRIVE_HASHES" 2>/dev/null | head -1 | awk '{print $1}')
+      # Use awk for exact path match (safe against regex special chars in paths)
+      expected_hash=$(awk -v path="$path" '{
+        hash = $1
+        line_path = substr($0, index($0, "  ") + 2)
+        if (line_path == path) { print hash; exit }
+      }' "$CLAW_DRIVE_HASHES" 2>/dev/null || true)
+
       if [[ -z "$expected_hash" ]]; then
         echo "  ⚠️  No hash registered: $path"
         ((hash_missing++)) || true
+        if [[ "$fix" == "true" ]]; then
+          dedup_register "$full" "$path"
+          echo "     🔧 Fixed: registered missing hash"
+          ((fixed++)) || true
+        fi
       else
         local actual_hash
         actual_hash=$(shasum -a 256 "$full" | awk '{print $1}')
@@ -335,6 +352,15 @@ cmd_verify() {
     [[ $orphans -gt 0 ]] && echo "  ⚠️  Orphan files: $orphans"
     [[ $hash_missing -gt 0 ]] && echo "  ⚠️  Missing hashes: $hash_missing"
     [[ $hash_orphans -gt 0 ]] && echo "  ⚠️  Hash mismatches: $hash_orphans"
+    if [[ "$fix" == "true" ]]; then
+      echo ""
+      echo "🔧 Auto-fixed: $fixed issue(s)"
+      [[ $((orphans + hash_orphans)) -gt 0 ]] && \
+        echo "   Manual review needed: $((orphans + hash_orphans)) issue(s) (orphans / hash mismatches)"
+    else
+      echo ""
+      echo "💡 Tip: run 'claw-drive verify --fix' to auto-repair missing entries and hashes."
+    fi
   fi
 }
 
@@ -421,7 +447,7 @@ Commands:
   update <path> [options]       Update description/tags on an entry
   delete <path> [--force]       Delete a file and its index entry
   status [--json]               Show drive status
-  verify                        Check index ↔ disk ↔ hash consistency
+  verify [--fix]                Check index ↔ disk ↔ hash consistency; --fix auto-repairs
   migrate <subcommand>          Migrate files from existing directory
   sync auth                     Authorize Google Drive (one-time)
   sync <subcommand>             Manage Google Drive sync
