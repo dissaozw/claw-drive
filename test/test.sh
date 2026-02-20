@@ -212,7 +212,10 @@ assert_output "reject absolute category" "must not be an absolute path" bash "$C
   --category "/etc" --desc "test" --tags "test"
 assert_output "reject .. in name" "must not contain" bash "$CLI" store "$SRC_DIR/traversal.txt" \
   --category documents --name "../../etc/passwd" --desc "test" --tags "test"
+assert_output "reject / in name" "must not contain" bash "$CLI" store "$SRC_DIR/traversal.txt" \
+  --category documents --name "sub/file.txt" --desc "test" --tags "test"
 assert_output "reject .. in delete path" "must not contain" bash "$CLI" delete "../outside/file.txt" --force
+assert_output "reject .. in update path" "must not contain" bash "$CLI" update "../outside/file.txt" --desc "test"
 
 # --- Verify ---
 echo ""

@@ -111,6 +111,14 @@ migrate_apply() {
       continue
     fi
 
+    # Validate path components from plan file
+    if ! validate_path_component "category" "$category" 2>&1 || \
+       ! validate_filename "name" "$new_name" 2>&1; then
+      echo "  ❌ Unsafe path in plan: $category/$new_name"
+      ((errors++)) || true
+      continue
+    fi
+
     local full_source="$source_dir/$src_path"
     if [[ ! -f "$full_source" ]]; then
       echo "  ❌ Source missing: $src_path"
@@ -132,6 +140,10 @@ migrate_apply() {
       echo "  📄 $src_path → $category/$new_name [$tags]"
     else
       mkdir -p "$CLAW_DRIVE_DIR/$category"
+      if ! validate_in_drive_dir "$dest"; then
+        ((errors++)) || true
+        continue
+      fi
       cp "$full_source" "$dest"
       dedup_register "$dest" "$category/$new_name"
 
