@@ -199,6 +199,45 @@ assert_output "verify catches orphan" "Orphan file" bash "$CLI" verify
 # Clean up orphan
 rm "$TEST_DIR/documents/orphan.txt"
 
+# verify --fix: stale index entry (file deleted from disk manually)
+echo "stale content" > "$SRC_DIR/stale.txt"
+assert "store file that will become stale" bash "$CLI" store "$SRC_DIR/stale.txt" \
+  --category misc --desc "Stale file test" --tags "stale" --source manual
+assert "stale file exists before manual delete" test -f "$TEST_DIR/misc/stale.txt"
+# Manually remove from disk (bypassing claw-drive delete)
+rm "$TEST_DIR/misc/stale.txt"
+assert_output "verify reports missing on disk" "Missing on disk" bash "$CLI" verify
+assert_output "verify --fix removes stale entry" "Fixed" bash "$CLI" verify --fix
+# Confirm index entry is gone
+stale_in_index=$(jq -r 'select(.path=="misc/stale.txt") | .path' "$TEST_DIR/INDEX.jsonl")
+if [[ -z "$stale_in_index" ]]; then
+  echo "  ✅ stale index entry removed by --fix"
+  ((passed++)) || true
+else
+  echo "  ❌ stale index entry still present after --fix"
+  ((failed++)) || true
+fi
+assert_output "verify clean after --fix" "All clear" bash "$CLI" verify
+
+# verify --fix: missing hash entry
+echo "nohash content" > "$SRC_DIR/nohash.txt"
+assert "store file for hash-missing test" bash "$CLI" store "$SRC_DIR/nohash.txt" \
+  --category misc --desc "Hash missing test" --tags "nohash" --source manual
+# Manually strip hash from ledger
+grep -v "misc/nohash.txt" "$TEST_DIR/.hashes" > "$TEST_DIR/.hashes.tmp" && \
+  mv "$TEST_DIR/.hashes.tmp" "$TEST_DIR/.hashes"
+assert_output "verify reports missing hash" "No hash registered" bash "$CLI" verify
+assert_output "verify --fix registers hash" "Fixed" bash "$CLI" verify --fix
+# Confirm hash is now present
+if grep -q "misc/nohash.txt" "$TEST_DIR/.hashes" 2>/dev/null; then
+  echo "  ✅ missing hash re-registered by --fix"
+  ((passed++)) || true
+else
+  echo "  ❌ hash still missing after --fix"
+  ((failed++)) || true
+fi
+assert_output "verify clean after hash fix" "All clear" bash "$CLI" verify
+
 # --- Status ---
 echo ""
 echo "Status:"
