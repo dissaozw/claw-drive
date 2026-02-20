@@ -29,7 +29,7 @@ index_remove() {
   local tmp
   tmp=$(mktemp)
 
-  jq -c "select(.path != \"$target_path\")" "$CLAW_DRIVE_INDEX" > "$tmp"
+  jq -c --arg path "$target_path" 'select(.path != $path)' "$CLAW_DRIVE_INDEX" > "$tmp"
   mv "$tmp" "$CLAW_DRIVE_INDEX"
 }
 
