@@ -78,7 +78,9 @@ index_update() {
 # Check if a path exists in the index
 index_has() {
   local target_path="$1"
-  jq -e --arg p "$target_path" 'select(.path == $p)' "$CLAW_DRIVE_INDEX" > /dev/null 2>&1
+  # jq -e can return non-zero with JSONL streams in some envs despite a match;
+  # use exact path membership check for robust existence probing.
+  jq -r '.path // empty' "$CLAW_DRIVE_INDEX" 2>/dev/null | grep -Fxq "$target_path"
 }
 
 # Dedup: remove hash entry for a path (exact match, regex-safe)
