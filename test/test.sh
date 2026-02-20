@@ -187,6 +187,21 @@ fi
 
 assert_output "delete nonexistent fails" "Not found" bash "$CLI" delete "nonexistent.txt" --force
 
+# Delete with special characters in filename (regression: jq injection via interpolation)
+special_src="$SRC_DIR/report (2025) final.txt"
+echo "special content" > "$special_src"
+bash "$CLI" store "$special_src" --category documents --desc "Report with parens and spaces" --tags "test" >/dev/null 2>&1 || true
+special_path="documents/report (2025) final.txt"
+assert "delete file with special chars --force" bash "$CLI" delete "$special_path" --force
+local_special=$(jq -r --arg p "$special_path" 'select(.path == $p) | .path' "$TEST_DIR/INDEX.jsonl")
+if [[ -z "$local_special" ]]; then
+  echo "  ✅ special-char index entry removed"
+  ((passed++)) || true
+else
+  echo "  ❌ special-char index entry still present"
+  ((failed++)) || true
+fi
+
 # --- Verify ---
 echo ""
 echo "Verify:"
