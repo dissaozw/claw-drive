@@ -26,7 +26,9 @@ sync_auth() {
 
   # Start rclone in background so we can capture the token
   local rclone_out
-  rclone_out=$(mktemp)
+  rclone_out=$(mktemp) || { echo "❌ mktemp failed"; return 1; }
+  # Ensure token file is cleaned up on exit/interrupt
+  trap 'rm -f "$rclone_out"' EXIT INT TERM
 
   rclone authorize "drive" --auth-no-open-browser > "$rclone_out" 2>&1 &
   local rclone_pid=$!
