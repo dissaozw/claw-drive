@@ -15,7 +15,7 @@ Organize and retrieve personal files with auto-categorization and a searchable i
 - **If the user doesn't reply → default to SENSITIVE.** Silence = no consent.
 - **`identity/` files are ALWAYS sensitive** — never read, never extract, never log contents.
 - **Extracted content enters the conversation transcript** which is logged permanently to `.jsonl` files. Once you read a file, its contents are in the logs forever.
-- **Descriptions in INDEX.md are also persistent.** Don't put sensitive details (SSNs, account numbers, passwords) in descriptions even for non-sensitive files — use redacted/partial forms (e.g. "account ending ****4321").
+- **Descriptions in INDEX.jsonl are also persistent.** Don't put sensitive details (SSNs, account numbers, passwords) in descriptions even for non-sensitive files — use redacted/partial forms (e.g. "account ending ****4321").
 - **When in doubt, don't read.** A vague index entry is better than leaked personal data.
 
 ## Dependencies
@@ -31,7 +31,7 @@ Organize and retrieve personal files with auto-categorization and a searchable i
 
 The CLI handles copying, hashing, deduplication, and index updates atomically. Bypassing it causes:
 - Files stored without hash registration → dedup breaks silently
-- INDEX.md out of sync with actual files
+- INDEX.jsonl out of sync with actual files
 - Version confusion when replacing files
 
 **PATH note:** `~/.local/bin` may not be in the agent shell's PATH. If `claw-drive` is not found, use the full path:
@@ -46,7 +46,7 @@ If the symlink is broken (e.g. after renaming the skill directory), re-run `make
 claw-drive init [path]
 ```
 
-This creates the directory structure, INDEX.md, and hash ledger. Default path: `~/claw-drive`.
+This creates the directory structure, INDEX.jsonl, and hash ledger. Default path: `~/claw-drive`.
 
 ## Workflow
 
@@ -116,7 +116,7 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 - Lowercase, single words or short hyphenated phrases
 - Always include the category name as a tag (e.g. `medical` for files in `medical/`)
 - Add cross-cutting tags for things like: entity names (`sorbet`), document type (`invoice`, `receipt`, `report`), context (`emergency`, `tax-2025`)
-- Reuse existing tags when possible — read INDEX.md to see existing tags before inventing new ones
+- Reuse existing tags when possible — read INDEX.jsonl to see existing tags before inventing new ones
 
 **Examples:**
 ```bash
@@ -234,6 +234,20 @@ Logs: `~/Library/Logs/claw-drive/sync.log`
 
 Use the `exclude` list in `.sync-config` to keep sensitive directories local-only. `identity/` is excluded by default.
 
+## Verify
+
+Check index ↔ disk ↔ hash consistency:
+
+```bash
+claw-drive verify          # report issues
+claw-drive verify --fix    # auto-repair what's fixable
+```
+
+**Auto-fixable:** missing on disk (removes stale index entry), missing hash (re-registers).
+**Manual review:** orphan files (no metadata to index), hash mismatches (possible corruption).
+
+Run `verify` after manual file operations or when something seems off.
+
 ## Tips
 
 - The CLI maintains INDEX.jsonl automatically — don't edit it manually
@@ -249,4 +263,4 @@ Before storing any file, verify:
 - [ ] If sensitive: am I skipping content extraction? (must be yes)
 - [ ] If `identity/`: am I skipping extraction regardless? (must be yes)
 - [ ] Are there SSNs, full account numbers, or passwords in my description? (must be no)
-- [ ] Would I be comfortable if this INDEX.md entry leaked? (must be yes)
+- [ ] Would I be comfortable if this INDEX.jsonl entry leaked? (must be yes)
