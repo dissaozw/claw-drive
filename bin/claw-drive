@@ -70,12 +70,46 @@ cmd_init() {
 # Validate a path component (category or filename) is safe — no traversal or absolute paths
 validate_path_component() {
   local label="$1" value="$2"
+  if [[ -z "$value" ]]; then
+    echo "❌ $label must not be empty"
+    return 1
+  fi
   if [[ "$value" == /* ]]; then
     echo "❌ $label must not be an absolute path: $value"
     return 1
   fi
-  if [[ "$value" == *".."* ]]; then
-    echo "❌ $label must not contain '..': $value"
+  # Check for '..' as a path segment (not just substring, so file..name is OK)
+  if [[ "$value" == ".." || "$value" == ../* || "$value" == */../* || "$value" == *"/.. " || "$value" == */.. ]]; then
+    echo "❌ $label must not contain path traversal: $value"
+    return 1
+  fi
+}
+
+# Validate a filename has no path separators
+validate_filename() {
+  local label="$1" value="$2"
+  validate_path_component "$label" "$value" || return 1
+  if [[ "$value" == *"/"* ]]; then
+    echo "❌ $label must not contain '/': $value"
+    return 1
+  fi
+}
+
+# Validate resolved path is inside the drive directory
+validate_in_drive_dir() {
+  local dest_path="$1"
+  local resolved
+  resolved=$(cd "$(dirname "$dest_path")" 2>/dev/null && echo "$(pwd)/$(basename "$dest_path")") || {
+    echo "❌ Path resolution failed: $dest_path"
+    return 1
+  }
+  local drive_resolved
+  drive_resolved=$(cd "$CLAW_DRIVE_DIR" 2>/dev/null && pwd) || {
+    echo "❌ Drive directory not accessible"
+    return 1
+  }
+  if [[ "$resolved" != "$drive_resolved"/* ]]; then
+    echo "❌ Path escapes drive directory: $dest_path"
     return 1
   fi
 }
@@ -121,15 +155,16 @@ cmd_store() {
 
   # Validate path components against traversal
   validate_path_component "--category" "$category" || return 1
-  [[ -n "${custom_name:-}" ]] && { validate_path_component "--name" "$custom_name" || return 1; }
+  [[ -n "${custom_name:-}" ]] && { validate_filename "--name" "$custom_name" || return 1; }
 
   # Build filename
   local basename
   basename="${custom_name:-$(basename "$file")}"
   local dest="$CLAW_DRIVE_DIR/$category/$basename"
 
-  # Copy file
+  # Final defense: verify resolved path is inside drive dir
   mkdir -p "$CLAW_DRIVE_DIR/$category"
+  validate_in_drive_dir "$dest" || return 1
   cp "$file" "$dest"
 
   # Register hash
@@ -166,6 +201,8 @@ cmd_update() {
     echo "❌ Usage: claw-drive update <path> [--desc <description>] [--tags <tags>]"
     return 1
   fi
+
+  validate_path_component "path" "$target_path" || return 1
 
   if [[ -z "$desc" && -z "$tags" ]]; then
     echo "❌ At least one of --desc or --tags is required"
