@@ -5,6 +5,13 @@
 # Agents read it directly for search/list/tag operations.
 # This library handles atomic write operations (add, update, delete).
 
+# Safe mktemp wrapper — exits on failure instead of proceeding with empty path
+safe_mktemp() {
+  local tmp
+  tmp=$(mktemp) || { echo "❌ mktemp failed" >&2; return 1; }
+  echo "$tmp"
+}
+
 # Append a new entry to the index
 index_add() {
   local date="$1" path="$2" desc="$3" tags="$4" source="$5"
@@ -27,7 +34,7 @@ index_add() {
 index_remove() {
   local target_path="$1"
   local tmp
-  tmp=$(mktemp)
+  tmp=$(safe_mktemp) || return 1
 
   jq -c --arg path "$target_path" 'select(.path != $path)' "$CLAW_DRIVE_INDEX" > "$tmp"
   mv "$tmp" "$CLAW_DRIVE_INDEX"
@@ -49,7 +56,7 @@ index_update() {
   done
 
   local tmp
-  tmp=$(mktemp)
+  tmp=$(safe_mktemp) || return 1
 
   local jq_filter='if .path == $path then'
   local jq_args
@@ -92,7 +99,7 @@ dedup_unregister() {
   fi
 
   local tmp
-  tmp=$(mktemp)
+  tmp=$(safe_mktemp) || return 1
   # Use shell parameter expansion to extract path from "hash  path" format,
   # avoiding unescaped grep which breaks on regex special chars (., (, ), etc.)
   while IFS= read -r line || [[ -n "$line" ]]; do
