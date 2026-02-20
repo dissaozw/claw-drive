@@ -98,6 +98,7 @@ The CLI handles **write operations** — store, sync, migrate — where atomicit
 | `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, and optional rename (`--name`) |
 | `claw-drive update <path> [opts]` | Update description and/or tags on an existing entry |
 | `claw-drive delete <path> [--force]` | Delete a file, its index entry, and dedup hash |
+| `claw-drive rm <path> [--force]` | Alias for `delete` |
 | `claw-drive status` | Show drive status (files, size, sync) |
 | `claw-drive sync auth` | Authorize Google Drive (one-time, opens browser) |
 | `claw-drive sync setup` | Check sync dependencies and config |
@@ -217,6 +218,7 @@ Claw Drive's agent **always asks before reading**. And if you don't answer, it a
 
 - [x] `update` command — modify description/tags on existing entries
 - [x] `delete` command — remove files with atomic index cleanup
+- [x] `verify --fix` — self-healing integrity checks
 - [ ] Watch folder ingestion (auto-import from Downloads)
 - [ ] Encrypted storage for sensitive categories
 - [ ] Linux support (inotifywait + systemd)
