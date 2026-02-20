@@ -67,6 +67,19 @@ cmd_init() {
   echo "✅ Claw Drive ready at $CLAW_DRIVE_DIR"
 }
 
+# Validate a path component (category or filename) is safe — no traversal or absolute paths
+validate_path_component() {
+  local label="$1" value="$2"
+  if [[ "$value" == /* ]]; then
+    echo "❌ $label must not be an absolute path: $value"
+    return 1
+  fi
+  if [[ "$value" == *".."* ]]; then
+    echo "❌ $label must not contain '..': $value"
+    return 1
+  fi
+}
+
 cmd_store() {
   local file="" category="" description="" tags="" source_name=""
 
@@ -105,6 +118,10 @@ cmd_store() {
     echo "❌ --desc is required"
     return 1
   fi
+
+  # Validate path components against traversal
+  validate_path_component "--category" "$category" || return 1
+  [[ -n "${custom_name:-}" ]] && { validate_path_component "--name" "$custom_name" || return 1; }
 
   # Build filename
   local basename
@@ -186,6 +203,8 @@ cmd_delete() {
     echo "❌ Usage: claw-drive delete <path> [--force]"
     return 1
   fi
+
+  validate_path_component "path" "$target_path" || return 1
 
   claw_drive_init || return 1
 

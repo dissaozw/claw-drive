@@ -202,6 +202,18 @@ else
   ((failed++)) || true
 fi
 
+# --- Path traversal prevention ---
+echo ""
+echo "Path traversal:"
+echo "traversal test" > "$SRC_DIR/traversal.txt"
+assert_output "reject .. in category" "must not contain" bash "$CLI" store "$SRC_DIR/traversal.txt" \
+  --category "../escape" --desc "test" --tags "test"
+assert_output "reject absolute category" "must not be an absolute path" bash "$CLI" store "$SRC_DIR/traversal.txt" \
+  --category "/etc" --desc "test" --tags "test"
+assert_output "reject .. in name" "must not contain" bash "$CLI" store "$SRC_DIR/traversal.txt" \
+  --category documents --name "../../etc/passwd" --desc "test" --tags "test"
+assert_output "reject .. in delete path" "must not contain" bash "$CLI" delete "../outside/file.txt" --force
+
 # --- Verify ---
 echo ""
 echo "Verify:"
