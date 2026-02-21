@@ -7,6 +7,16 @@
 [![Shell](https://img.shields.io/badge/Shell-bash-4EAA25?logo=gnubash&logoColor=white&style=flat-square)](https://www.gnu.org/software/bash/)
 [![CI](https://github.com/dissaozw/claw-drive/actions/workflows/ci.yml/badge.svg)](https://github.com/dissaozw/claw-drive/actions/workflows/ci.yml)
 
+<p align="center">
+  <img src="assets/demo-before.png" width="480" alt="Before: navigating 7 layers of folders">
+  <br><em>😩 Before — 7 layers deep, 3 "final" versions</em>
+</p>
+
+<p align="center">
+  <img src="assets/demo-after.png" width="480" alt="After: one message in Telegram, file returned instantly">
+  <br><em>✨ After — one sentence, file in hand</em>
+</p>
+
 Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags them for cross-cutting search, deduplicates by content, and retrieves them in natural language — all backed by Google Drive for cloud sync and security.
 
 **Privacy is not a feature — it's the foundation.** Your agent never reads file contents without asking. If you don't respond, it defaults to private. Sensitive categories like `identity/` are never read, never synced. Your data stays yours.
@@ -24,23 +34,37 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 
 ## Install
 
-```bash
-# 1. Install dependencies
-brew install rclone fswatch   # optional, for sync only
-# pymupdf for PDF extraction — runs via uv, no global install needed
+### As an OpenClaw Skill
 
-# 2. Clone and install
-git clone git@github.com:dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive
+Clone into your OpenClaw skills directory — OpenClaw picks it up automatically on the next session:
+
+```bash
+git clone https://github.com/dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive
+```
+
+Then install the CLI and initialize:
+
+```bash
 cd ~/.openclaw/skills/claw-drive
 make install   # symlinks claw-drive to /usr/local/bin (or PREFIX=~/.local make install)
-
-# 3. Initialize your drive
 claw-drive init
-
-# 4. (Optional) Set up Google Drive sync
-claw-drive sync auth    # agent sends you a link to click
-claw-drive sync start   # start background sync daemon
 ```
+
+That's it. Your agent will see the skill and can start storing files immediately.
+
+> **Updating:** `cd ~/.openclaw/skills/claw-drive && git pull`
+
+### Optional: Google Drive Sync
+
+```bash
+brew install rclone fswatch   # sync dependencies
+claw-drive sync auth          # one-time — opens browser for Google auth
+claw-drive sync start         # start background sync daemon
+```
+
+### Optional: PDF Extraction
+
+PDF content extraction uses [PyMuPDF](https://pymupdf.readthedocs.io/) via `uv` — no global install needed. It runs automatically when the agent stores a PDF with content reading enabled.
 
 ## Usage
 
