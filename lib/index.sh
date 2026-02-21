@@ -13,21 +13,34 @@ safe_mktemp() {
 }
 
 # Append a new entry to the index
+# Usage: index_add <date> <path> <desc> <tags> <source> [metadata_json]
 index_add() {
-  local date="$1" path="$2" desc="$3" tags="$4" source="$5"
+  local date="$1" path="$2" desc="$3" tags="$4" source="$5" metadata="${6:-}"
 
   # Convert comma-separated tags to JSON array
   local tags_json
   tags_json=$(printf '%s' "$tags" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";""))')
 
-  jq -cn \
-    --arg date "$date" \
-    --arg path "$path" \
-    --arg desc "$desc" \
-    --argjson tags "$tags_json" \
-    --arg source "$source" \
-    '{date:$date, path:$path, desc:$desc, tags:$tags, source:$source}' \
-    >> "$CLAW_DRIVE_INDEX"
+  if [[ -n "$metadata" ]]; then
+    jq -cn \
+      --arg date "$date" \
+      --arg path "$path" \
+      --arg desc "$desc" \
+      --argjson tags "$tags_json" \
+      --arg source "$source" \
+      --argjson metadata "$metadata" \
+      '{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, metadata:$metadata}' \
+      >> "$CLAW_DRIVE_INDEX"
+  else
+    jq -cn \
+      --arg date "$date" \
+      --arg path "$path" \
+      --arg desc "$desc" \
+      --argjson tags "$tags_json" \
+      --arg source "$source" \
+      '{date:$date, path:$path, desc:$desc, tags:$tags, source:$source}' \
+      >> "$CLAW_DRIVE_INDEX"
+  fi
 }
 
 # Remove an entry by path (exact match)
@@ -46,11 +59,12 @@ index_update() {
   local target_path="$1"
   shift
 
-  local new_desc="" new_tags=""
+  local new_desc="" new_tags="" new_metadata=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --desc|-d) new_desc="$2"; shift 2 ;;
       --tags|-t) new_tags="$2"; shift 2 ;;
+      --metadata|-m) new_metadata="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -72,6 +86,12 @@ index_update() {
     tags_json=$(printf '%s' "$new_tags" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";""))')
     jq_filter="$jq_filter .tags = \$tags |"
     jq_args+=(--argjson tags "$tags_json")
+  fi
+
+  if [[ -n "$new_metadata" ]]; then
+    # Merge new metadata into existing (or create if absent)
+    jq_filter="$jq_filter .metadata = ((.metadata // {}) * \$meta) |"
+    jq_args+=(--argjson meta "$new_metadata")
   fi
 
   # Remove trailing pipe if present

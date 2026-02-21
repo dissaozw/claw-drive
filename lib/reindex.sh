@@ -156,6 +156,8 @@ reindex_apply() {
     desc=$(jq -r ".orphans[$i].desc // \"\"" "$plan")
     tags=$(jq -r ".orphans[$i].tags // [] | join(\",\")" "$plan")
     source=$(jq -r ".orphans[$i].source // \"reindex\"" "$plan")
+    local metadata_json
+    metadata_json=$(jq -c ".orphans[$i].metadata // null" "$plan")
 
     if [[ -z "$desc" ]]; then
       echo "  ⚠️  No description for orphan: $path (skipping)"
@@ -167,13 +169,17 @@ reindex_apply() {
     local date_str
     date_str=$(jq -r ".orphans[$i].modified // \"$(date +%Y-%m-%d)\"" "$plan")
 
+    local meta_arg=""
+    [[ "$metadata_json" != "null" ]] && meta_arg="$metadata_json"
+
     if [[ "$dry_run" == "true" ]]; then
       echo "  ➕ Would add: $path"
       echo "     desc: $desc"
       echo "     tags: $tags"
+      [[ -n "$meta_arg" ]] && echo "     metadata: $meta_arg"
     else
       # Add to index
-      index_add "$date_str" "$path" "$desc" "$tags" "$source"
+      index_add "$date_str" "$path" "$desc" "$tags" "$source" "$meta_arg"
 
       # Register hash
       local full="$CLAW_DRIVE_DIR/$path"
@@ -193,16 +199,18 @@ reindex_apply() {
 
   i=0
   while [[ $i -lt $existing_count ]]; do
-    local new_desc new_tags path
+    local new_desc new_tags new_metadata path
     path=$(jq -r ".existing[$i].path" "$plan")
     new_desc=$(jq -r ".existing[$i].new_desc // \"\"" "$plan")
     new_tags=$(jq -r ".existing[$i].new_tags // null" "$plan")
+    new_metadata=$(jq -c ".existing[$i].new_metadata // null" "$plan")
 
-    if [[ -n "$new_desc" || "$new_tags" != "null" ]]; then
+    if [[ -n "$new_desc" || "$new_tags" != "null" || "$new_metadata" != "null" ]]; then
       if [[ "$dry_run" == "true" ]]; then
         echo "  📝 Would update: $path"
         [[ -n "$new_desc" ]] && echo "     new desc: $new_desc"
         [[ "$new_tags" != "null" ]] && echo "     new tags: $(jq -r ".existing[$i].new_tags | join(\",\")" "$plan")"
+        [[ "$new_metadata" != "null" ]] && echo "     new metadata: $new_metadata"
       else
         local update_args=()
         [[ -n "$new_desc" ]] && update_args+=(--desc "$new_desc")
@@ -211,6 +219,7 @@ reindex_apply() {
           tags_csv=$(jq -r ".existing[$i].new_tags | join(\",\")" "$plan")
           update_args+=(--tags "$tags_csv")
         fi
+        [[ "$new_metadata" != "null" ]] && update_args+=(--metadata "$new_metadata")
 
         index_update "$path" "${update_args[@]}"
         echo "  ✅ Updated: $path"
