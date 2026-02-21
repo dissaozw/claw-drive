@@ -23,6 +23,7 @@ source "$CLAW_DRIVE_ROOT/lib/index.sh"
 source "$CLAW_DRIVE_ROOT/lib/dedup.sh"
 source "$CLAW_DRIVE_ROOT/lib/sync.sh"
 source "$CLAW_DRIVE_ROOT/lib/migrate.sh"
+source "$CLAW_DRIVE_ROOT/lib/reindex.sh"
 
 # --- Commands ---
 
@@ -487,6 +488,29 @@ cmd_migrate() {
   esac
 }
 
+cmd_reindex() {
+  local subcmd="${1:-help}"
+  shift || true
+
+  case "$subcmd" in
+    scan)    reindex_scan "$@" ;;
+    apply)   reindex_apply "$@" ;;
+    help|*)
+      echo "Usage: claw-drive reindex <command>"
+      echo ""
+      echo "Commands:"
+      echo "  scan [--output plan.json]     — scan drive, output reindex plan"
+      echo "  apply <plan.json> [--dry-run] — apply enriched plan to index"
+      echo ""
+      echo "Workflow:"
+      echo "  1. claw-drive reindex scan"
+      echo "  2. Agent enriches reindex-plan.json (adds desc/tags for orphans, new_desc/new_tags for existing)"
+      echo "  3. claw-drive reindex apply reindex-plan.json --dry-run  (preview)"
+      echo "  4. claw-drive reindex apply reindex-plan.json            (commit)"
+      ;;
+  esac
+}
+
 cmd_version() {
   echo "claw-drive $CLAW_DRIVE_VERSION"
 }
@@ -505,6 +529,7 @@ Commands:
   status [--json]               Show drive status
   verify [--fix]                Check index ↔ disk ↔ hash consistency; --fix auto-repairs
   migrate <subcommand>          Migrate files from existing directory
+  reindex <subcommand>          Scan and re-enrich index entries
   sync auth                     Authorize Google Drive (one-time)
   sync <subcommand>             Manage Google Drive sync
   version                       Show version
@@ -535,6 +560,7 @@ case "${1:-help}" in
   status)   shift; cmd_status "$@" ;;
   verify)   shift; cmd_verify "$@" ;;
   migrate)  shift; cmd_migrate "$@" ;;
+  reindex)  shift; cmd_reindex "$@" ;;
   sync)     shift; cmd_sync "$@" ;;
   version|--version|-v) cmd_version ;;
   help|--help|-h) cmd_help ;;
