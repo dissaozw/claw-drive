@@ -13,34 +13,38 @@ safe_mktemp() {
 }
 
 # Append a new entry to the index
-# Usage: index_add <date> <path> <desc> <tags> <source> [metadata_json]
+# Usage: index_add <date> <path> <desc> <tags> <source> [metadata_json] [original_name]
 index_add() {
-  local date="$1" path="$2" desc="$3" tags="$4" source="$5" metadata="${6:-}"
+  local date="$1" path="$2" desc="$3" tags="$4" source="$5" metadata="${6:-}" original_name="${7:-}"
 
   # Convert comma-separated tags to JSON array
   local tags_json
   tags_json=$(printf '%s' "$tags" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";""))')
 
+  local jq_args=(
+    --arg date "$date"
+    --arg path "$path"
+    --arg desc "$desc"
+    --argjson tags "$tags_json"
+    --arg source "$source"
+  )
+  local jq_expr='{date:$date, path:$path, desc:$desc, tags:$tags, source:$source}'
+
   if [[ -n "$metadata" ]]; then
-    jq -cn \
-      --arg date "$date" \
-      --arg path "$path" \
-      --arg desc "$desc" \
-      --argjson tags "$tags_json" \
-      --arg source "$source" \
-      --argjson metadata "$metadata" \
-      '{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, metadata:$metadata}' \
-      >> "$CLAW_DRIVE_INDEX"
-  else
-    jq -cn \
-      --arg date "$date" \
-      --arg path "$path" \
-      --arg desc "$desc" \
-      --argjson tags "$tags_json" \
-      --arg source "$source" \
-      '{date:$date, path:$path, desc:$desc, tags:$tags, source:$source}' \
-      >> "$CLAW_DRIVE_INDEX"
+    jq_args+=(--argjson metadata "$metadata")
+    jq_expr='{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, metadata:$metadata}'
   fi
+
+  if [[ -n "$original_name" ]]; then
+    jq_args+=(--arg original_name "$original_name")
+    if [[ -n "$metadata" ]]; then
+      jq_expr='{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, metadata:$metadata, original_name:$original_name}'
+    else
+      jq_expr='{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, original_name:$original_name}'
+    fi
+  fi
+
+  jq -cn "${jq_args[@]}" "$jq_expr" >> "$CLAW_DRIVE_INDEX"
 }
 
 # Remove an entry by path (exact match)

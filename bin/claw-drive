@@ -172,10 +172,15 @@ cmd_store() {
   # Register hash
   dedup_register "$dest" "$category/$basename"
 
-  # Update index
-  local date_str
+  # Update index — preserve original filename if renamed
+  local date_str original_name_arg=""
   date_str=$(date +%Y-%m-%d)
-  index_add "$date_str" "$category/$basename" "$description" "${tags:-}" "${source_name:-manual}" "${metadata:-}"
+  local original_file_name
+  original_file_name=$(basename "$file")
+  if [[ "$original_file_name" != "$basename" ]]; then
+    original_name_arg="$original_file_name"
+  fi
+  index_add "$date_str" "$category/$basename" "$description" "${tags:-}" "${source_name:-manual}" "${metadata:-}" "$original_name_arg"
 
   if [[ "${json_output:-}" == "true" ]]; then
     printf '{"status":"stored","path":"%s","category":"%s","tags":"%s","hash":"%s"}\n' \
