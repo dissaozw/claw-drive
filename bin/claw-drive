@@ -545,7 +545,7 @@ Store options:
   --name, -n <filename>         Custom filename (default: original name)
   --tags, -t <tag1,tag2>        Comma-separated tags
   --source, -s <source>         Source (email, telegram, manual)
-  --metadata, -m <json>         Custom metadata JSON (e.g. '{"expiry":"2027-01","amount":"$150"}')
+  --metadata, -m <json>         Custom metadata JSON (e.g. '{"expiry":"2027-01","amount":"\$150"}')
   --json                        JSON output
 
 Environment:
