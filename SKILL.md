@@ -157,7 +157,8 @@ Rules:
    # send via message tool
    rm ~/.openclaw/workspace/<filename>
    ```
-5. For multiple matches, send the most relevant one and list the rest — let the user pick
+5. **Never show raw sub-agent JSON to the user.** The announce message is internal — immediately process it and deliver the file. The user should only see the file and a brief description, not search internals.
+6. For multiple matches, send the most relevant one and list the rest — let the user pick
 
 #### Troubleshooting: pairing required
 
