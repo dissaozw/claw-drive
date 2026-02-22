@@ -72,13 +72,14 @@ index_update() {
   local target_path="$1"
   shift
 
-  local new_desc="" new_tags="" new_metadata="" new_correspondent=""
+  local new_desc="" new_tags="" new_metadata="" new_correspondent="" new_source=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --desc|-d) new_desc="$2"; shift 2 ;;
       --tags|-t) new_tags="$2"; shift 2 ;;
       --metadata|-m) new_metadata="$2"; shift 2 ;;
       --correspondent) new_correspondent="$2"; shift 2 ;;
+      --source|-s) new_source="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -111,6 +112,11 @@ index_update() {
   if [[ -n "$new_correspondent" ]]; then
     jq_filter="$jq_filter .correspondent = \$correspondent |"
     jq_args+=(--arg correspondent "$new_correspondent")
+  fi
+
+  if [[ -n "$new_source" ]]; then
+    jq_filter="$jq_filter .source = \$new_source |"
+    jq_args+=(--arg new_source "$new_source")
   fi
 
   # Remove trailing pipe if present

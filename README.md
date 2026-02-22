@@ -124,7 +124,7 @@ The CLI handles **write operations** — store, sync, migrate — where atomicit
 |---------|-------------|
 | `claw-drive init` | Initialize drive directory and INDEX.jsonl |
 | `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, rename (`--name`), metadata (`--metadata`), correspondent (`--correspondent`) |
-| `claw-drive update <path> [opts]` | Update description, tags, metadata, and/or correspondent on an existing entry |
+| `claw-drive update <path> [opts]` | Update description, tags, metadata, correspondent, and/or source on an existing entry |
 | `claw-drive delete <path> [--force]` | Delete a file, its index entry, and dedup hash |
 | `claw-drive rm <path> [--force]` | Alias for `delete` |
 | `claw-drive status` | Show drive status (files, size, sync) |

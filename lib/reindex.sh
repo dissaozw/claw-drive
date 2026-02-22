@@ -207,14 +207,17 @@ reindex_apply() {
     new_tags=$(jq -r ".existing[$i].new_tags // null" "$plan")
     new_metadata=$(jq -c ".existing[$i].new_metadata // null" "$plan")
     new_correspondent=$(jq -r ".existing[$i].new_correspondent // \"\"" "$plan")
+    local new_source
+    new_source=$(jq -r ".existing[$i].new_source // \"\"" "$plan")
 
-    if [[ -n "$new_desc" || "$new_tags" != "null" || "$new_metadata" != "null" || -n "$new_correspondent" ]]; then
+    if [[ -n "$new_desc" || "$new_tags" != "null" || "$new_metadata" != "null" || -n "$new_correspondent" || -n "$new_source" ]]; then
       if [[ "$dry_run" == "true" ]]; then
         echo "  📝 Would update: $path"
         [[ -n "$new_desc" ]] && echo "     new desc: $new_desc"
         [[ "$new_tags" != "null" ]] && echo "     new tags: $(jq -r ".existing[$i].new_tags | join(\",\")" "$plan")"
         [[ "$new_metadata" != "null" ]] && echo "     new metadata: $new_metadata"
         [[ -n "$new_correspondent" ]] && echo "     new correspondent: $new_correspondent"
+        [[ -n "$new_source" ]] && echo "     new source: $new_source"
       else
         local update_args=()
         [[ -n "$new_desc" ]] && update_args+=(--desc "$new_desc")
@@ -225,6 +228,7 @@ reindex_apply() {
         fi
         [[ "$new_metadata" != "null" ]] && update_args+=(--metadata "$new_metadata")
         [[ -n "$new_correspondent" ]] && update_args+=(--correspondent "$new_correspondent")
+        [[ -n "$new_source" ]] && update_args+=(--source "$new_source")
 
         index_update "$path" "${update_args[@]}"
         echo "  ✅ Updated: $path"

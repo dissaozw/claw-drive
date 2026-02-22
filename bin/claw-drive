@@ -194,7 +194,7 @@ cmd_store() {
 }
 
 cmd_update() {
-  local target_path="" desc="" tags="" metadata="" correspondent=""
+  local target_path="" desc="" tags="" metadata="" correspondent="" source_name=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -202,20 +202,21 @@ cmd_update() {
       --tags|-t) tags="$2"; shift 2 ;;
       --metadata|-m) metadata="$2"; shift 2 ;;
       --correspondent) correspondent="$2"; shift 2 ;;
+      --source|-s) source_name="$2"; shift 2 ;;
       --json) shift ;;
       *) target_path="$1"; shift ;;
     esac
   done
 
   if [[ -z "$target_path" ]]; then
-    echo "❌ Usage: claw-drive update <path> [--desc <desc>] [--tags <tags>] [--metadata <json>] [--correspondent <name>]"
+    echo "❌ Usage: claw-drive update <path> [--desc <desc>] [--tags <tags>] [--metadata <json>] [--correspondent <name>] [--source <source>]"
     return 1
   fi
 
   validate_path_component "path" "$target_path" || return 1
 
-  if [[ -z "$desc" && -z "$tags" && -z "$metadata" && -z "$correspondent" ]]; then
-    echo "❌ At least one of --desc, --tags, --metadata, or --correspondent is required"
+  if [[ -z "$desc" && -z "$tags" && -z "$metadata" && -z "$correspondent" && -z "$source_name" ]]; then
+    echo "❌ At least one of --desc, --tags, --metadata, --correspondent, or --source is required"
     return 1
   fi
 
@@ -231,6 +232,7 @@ cmd_update() {
   [[ -n "$tags" ]] && update_args+=(--tags "$tags")
   [[ -n "$metadata" ]] && update_args+=(--metadata "$metadata")
   [[ -n "$correspondent" ]] && update_args+=(--correspondent "$correspondent")
+  [[ -n "$source_name" ]] && update_args+=(--source "$source_name")
 
   index_update "$target_path" "${update_args[@]}"
   echo "✅ Updated: $target_path"
@@ -238,6 +240,7 @@ cmd_update() {
   [[ -n "$tags" ]] && echo "   Tags: $tags" || true
   [[ -n "$metadata" ]] && echo "   Metadata: $metadata" || true
   [[ -n "$correspondent" ]] && echo "   Correspondent: $correspondent" || true
+  [[ -n "$source_name" ]] && echo "   Source: $source_name" || true
 }
 
 cmd_delete() {
