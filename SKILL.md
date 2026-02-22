@@ -39,7 +39,7 @@ Organize and retrieve personal files with auto-categorization and a searchable i
 
 ## Dependencies
 
-- **claw-drive CLI** — `make install` from the skill directory (symlinks to `~/.local/bin/`)
+- **claw-drive CLI** — `brew install dissaozw/tap/claw-drive` (or `make install` from skill directory for manual setup)
 - **pymupdf** — PDF text extraction (`uv run --with pymupdf` — no global install needed)
 - **rclone** — Google Drive sync (optional): `brew install rclone`
 - **fswatch** — file watch daemon (optional): `brew install fswatch`
