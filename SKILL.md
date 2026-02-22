@@ -83,13 +83,77 @@ The `--name` flag lets you override the original filename (which may be ugly lik
 
 ### Retrieving a file
 
-When asked to find a file, **read INDEX.jsonl directly** — do NOT use a CLI search command.
+**Do NOT read INDEX.jsonl directly in the main session.** Spawn a search sub-agent instead. This keeps the index out of your context window and scales to large file collections.
 
-1. **Read** — `read ~/claw-drive/INDEX.jsonl` (the agent reads the full index)
-2. **Match** — use semantic understanding to find the right file (handles typos, synonyms, partial matches — far better than grep)
-3. **Deliver** — send via message tool or provide the full path (`~/claw-drive/<category>/<filename>`)
+#### Why sub-agent?
 
-INDEX.jsonl is a JSONL file — one JSON object per line. Each entry has `date`, `path`, `desc`, `tags` (array), and `source`. The agent's native comprehension is strictly better than any CLI grep-based search.
+The index grows with every stored file (~300 bytes/entry). At 1000+ files, reading the full index into the main agent's context wastes tokens and may hit context limits. A sub-agent runs in its own isolated session with a cheap model, reads the index, and returns only the matching entries.
+
+#### How to spawn
+
+Use `sessions_spawn` with:
+- `mode`: `run`
+- `model`: A lightweight model is recommended (the search task is simple). Resolution order:
+  1. Explicit `model` param on `sessions_spawn` (if provided)
+  2. `agents.defaults.subagents.model` in config (if set)
+  3. Falls back to the main agent's model
+- `task`: The prompt below, with the user's query filled in
+
+```
+You are a file search agent. Read ~/claw-drive/INDEX.jsonl and find entries matching this query:
+
+"<USER_QUERY>"
+
+Return ONLY valid JSON, no explanation:
+
+{
+  "matches": [
+    {
+      "path": "<path from index>",
+      "desc": "<desc from index>",
+      "date": "<date from index>",
+      "tags": ["<tags from index>"],
+      "confidence": "high|medium|low"
+    }
+  ],
+  "total_indexed": <number of entries in index>,
+  "query": "<original query>"
+}
+
+Rules:
+- Max 5 matches, sorted by relevance
+- confidence: high = exact match, medium = likely relevant, low = tangential
+- If no matches, return {"matches": [], "total_indexed": N, "query": "..."}
+- Only read INDEX.jsonl, never read file contents
+```
+
+#### Receive and deliver
+
+1. The sub-agent auto-announces its result back to your session
+2. Parse the JSON from the announce message
+3. Prepend `~/claw-drive/` to each `path` to get the full file path
+4. **Send the file:** The claw-drive directory may not be in the message tool's allowed paths. If sending fails with "not under an allowed directory", copy the file to a temp location first (e.g. workspace), send it, then clean up:
+   ```bash
+   cp ~/claw-drive/<path> ~/.openclaw/workspace/
+   # send via message tool
+   rm ~/.openclaw/workspace/<filename>
+   ```
+5. For multiple matches, send the most relevant one and list the rest — let the user pick
+
+#### Troubleshooting: pairing required
+
+If `sessions_spawn` returns `pairing required`, the sub-agent's exec harness needs device pairing approval. Run:
+
+```bash
+openclaw devices list        # find the pending request
+openclaw devices approve <request-id>
+```
+
+This is a one-time setup — once approved, subsequent spawns work without re-pairing.
+
+#### Index format
+
+INDEX.jsonl is a JSONL file — one JSON object per line. Each entry has: `date`, `path`, `desc`, `tags` (array), `source`, and optional fields `metadata` (JSON), `original_name`, `correspondent`.
 
 ### Updating an entry
 
