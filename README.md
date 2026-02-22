@@ -30,6 +30,9 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 - ☁️ **Google Drive sync** — optional real-time backup via fswatch + rclone
 - 🔒 **Privacy-first** — local-first by default, sensitive categories excluded from sync, default-safe content handling
 - 🛡️ **Sensitive file protection** — agent asks before reading contents; defaults to private if no reply
+- 📋 **Custom metadata** — attach structured data (expiry dates, policy numbers, amounts) to any file
+- 🔄 **Reindex** — batch re-enrich old files as your agent gets smarter
+- 📛 **Original name tracking** — renames are recorded, both names searchable
 - 🤖 **AI-native** — designed for [OpenClaw](https://github.com/openclaw/openclaw) agents, with a CLI under the hood
 
 ## Install
@@ -119,8 +122,8 @@ The CLI handles **write operations** — store, sync, migrate — where atomicit
 | Command | Description |
 |---------|-------------|
 | `claw-drive init` | Initialize drive directory and INDEX.jsonl |
-| `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, and optional rename (`--name`) |
-| `claw-drive update <path> [opts]` | Update description and/or tags on an existing entry |
+| `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, optional rename (`--name`), and custom metadata (`--metadata`) |
+| `claw-drive update <path> [opts]` | Update description, tags, and/or metadata on an existing entry |
 | `claw-drive delete <path> [--force]` | Delete a file, its index entry, and dedup hash |
 | `claw-drive rm <path> [--force]` | Alias for `delete` |
 | `claw-drive status` | Show drive status (files, size, sync) |
@@ -130,6 +133,8 @@ The CLI handles **write operations** — store, sync, migrate — where atomicit
 | `claw-drive sync stop` | Stop sync daemon |
 | `claw-drive sync push` | Manual one-shot sync |
 | `claw-drive sync status` | Show sync daemon state |
+| `claw-drive reindex scan [--output plan.json]` | Scan drive for orphans + export existing entries for re-enrichment |
+| `claw-drive reindex apply <plan.json> [--dry-run]` | Apply enriched reindex plan (add orphans, update existing) |
 | `claw-drive migrate scan <dir> [plan.json]` | Scan a directory into a migration plan |
 | `claw-drive migrate summary [plan.json]` | Show migration plan breakdown |
 | `claw-drive migrate apply [plan.json] [--dry-run]` | Execute migration plan |
@@ -162,6 +167,52 @@ claw-drive migrate apply migration-plan.json
 ```
 
 The scan outputs a JSON plan with file metadata (path, size, mime type, extension). The agent fills in classification fields, then `apply` copies files into Claw Drive with full dedup, indexing, and tagging.
+
+## Custom Metadata
+
+Store structured data alongside your files — expiry dates, policy numbers, amounts, anything the agent can answer questions about without reading the original file.
+
+```bash
+# Add metadata when storing
+claw-drive store insurance-card.pdf -c insurance -d "Auto insurance" \
+  --metadata '{"policy":"****3441","expiry":"2026-08","provider":"Farmers"}'
+
+# Add metadata to existing files
+claw-drive update insurance/card.pdf --metadata '{"deductible":"$500"}'
+```
+
+Metadata merges on update — existing fields are preserved, new fields are added. The agent can now answer "when does my insurance expire?" directly from the index, without opening the file.
+
+## Reindex
+
+Already have files in Claw Drive but want richer descriptions, better tags, or custom metadata? The reindex workflow lets the agent re-analyze everything:
+
+```bash
+# 1. Scan — exports a plan with all files + current index entries
+claw-drive reindex scan --output reindex-plan.json
+
+# 2. Agent enriches the plan:
+#    - Orphan files: fills in desc, tags, source, metadata
+#    - Existing entries: adds new_desc, new_tags, new_metadata to update
+
+# 3. Preview changes
+claw-drive reindex apply reindex-plan.json --dry-run
+
+# 4. Apply
+claw-drive reindex apply reindex-plan.json
+```
+
+As your agent gets smarter, your old files benefit too.
+
+## Original Filename Preservation
+
+When you rename a file on store (`--name`), Claw Drive records the original filename in the index. This means you can search by either name:
+
+```bash
+claw-drive store messy-scan-001.pdf -c medical --name "blood-work-2026-02.pdf" -d "..."
+# Index records: original_name: "messy-scan-001.pdf"
+# Searchable by both "messy-scan" and "blood-work"
+```
 
 ## Architecture
 
@@ -243,6 +294,9 @@ Claw Drive's agent **always asks before reading**. And if you don't answer, it a
 - [x] `update` command — modify description/tags on existing entries
 - [x] `delete` command — remove files with atomic index cleanup
 - [x] `verify --fix` — self-healing integrity checks
+- [x] `reindex` — batch re-enrichment of existing files
+- [x] Custom metadata fields — structured data per file
+- [x] Original filename preservation on rename
 - [ ] Watch folder ingestion (auto-import from Downloads)
 - [ ] Encrypted storage for sensitive categories
 - [ ] Linux support (inotifywait + systemd)
