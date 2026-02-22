@@ -13,9 +13,9 @@ safe_mktemp() {
 }
 
 # Append a new entry to the index
-# Usage: index_add <date> <path> <desc> <tags> <source> [metadata_json] [original_name]
+# Usage: index_add <date> <path> <desc> <tags> <source> [metadata_json] [original_name] [correspondent]
 index_add() {
-  local date="$1" path="$2" desc="$3" tags="$4" source="$5" metadata="${6:-}" original_name="${7:-}"
+  local date="$1" path="$2" desc="$3" tags="$4" source="$5" metadata="${6:-}" original_name="${7:-}" correspondent="${8:-}"
 
   # Convert comma-separated tags to JSON array
   local tags_json
@@ -35,13 +35,22 @@ index_add() {
     jq_expr='{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, metadata:$metadata}'
   fi
 
+  # Build optional fields dynamically
+  local optional_fields=""
   if [[ -n "$original_name" ]]; then
     jq_args+=(--arg original_name "$original_name")
-    if [[ -n "$metadata" ]]; then
-      jq_expr='{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, metadata:$metadata, original_name:$original_name}'
-    else
-      jq_expr='{date:$date, path:$path, desc:$desc, tags:$tags, source:$source, original_name:$original_name}'
-    fi
+    optional_fields="$optional_fields, original_name:\$original_name"
+  fi
+  if [[ -n "$correspondent" ]]; then
+    jq_args+=(--arg correspondent "$correspondent")
+    optional_fields="$optional_fields, correspondent:\$correspondent"
+  fi
+
+  # Rebuild expression with optional fields
+  if [[ -n "$metadata" ]]; then
+    jq_expr="{date:\$date, path:\$path, desc:\$desc, tags:\$tags, source:\$source, metadata:\$metadata${optional_fields}}"
+  else
+    jq_expr="{date:\$date, path:\$path, desc:\$desc, tags:\$tags, source:\$source${optional_fields}}"
   fi
 
   jq -cn "${jq_args[@]}" "$jq_expr" >> "$CLAW_DRIVE_INDEX"
@@ -63,12 +72,13 @@ index_update() {
   local target_path="$1"
   shift
 
-  local new_desc="" new_tags="" new_metadata=""
+  local new_desc="" new_tags="" new_metadata="" new_correspondent=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --desc|-d) new_desc="$2"; shift 2 ;;
       --tags|-t) new_tags="$2"; shift 2 ;;
       --metadata|-m) new_metadata="$2"; shift 2 ;;
+      --correspondent) new_correspondent="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -96,6 +106,11 @@ index_update() {
     # Merge new metadata into existing (or create if absent)
     jq_filter="$jq_filter .metadata = ((.metadata // {}) * \$meta) |"
     jq_args+=(--argjson meta "$new_metadata")
+  fi
+
+  if [[ -n "$new_correspondent" ]]; then
+    jq_filter="$jq_filter .correspondent = \$correspondent |"
+    jq_args+=(--arg correspondent "$new_correspondent")
   fi
 
   # Remove trailing pipe if present

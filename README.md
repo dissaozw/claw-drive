@@ -31,6 +31,7 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 - 🔒 **Privacy-first** — local-first by default, sensitive categories excluded from sync, default-safe content handling
 - 🛡️ **Sensitive file protection** — agent asks before reading contents; defaults to private if no reply
 - 📋 **Custom metadata** — attach structured data (expiry dates, policy numbers, amounts) to any file
+- 👤 **Correspondent tracking** — record who sent or issued each file
 - 🔄 **Reindex** — batch re-enrich old files as your agent gets smarter
 - 📛 **Original name tracking** — renames are recorded, both names searchable
 - 🤖 **AI-native** — designed for [OpenClaw](https://github.com/openclaw/openclaw) agents, with a CLI under the hood
@@ -122,8 +123,8 @@ The CLI handles **write operations** — store, sync, migrate — where atomicit
 | Command | Description |
 |---------|-------------|
 | `claw-drive init` | Initialize drive directory and INDEX.jsonl |
-| `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, optional rename (`--name`), and custom metadata (`--metadata`) |
-| `claw-drive update <path> [opts]` | Update description, tags, and/or metadata on an existing entry |
+| `claw-drive store <file> [opts]` | Store a file with categorization, tags, dedup, rename (`--name`), metadata (`--metadata`), correspondent (`--correspondent`) |
+| `claw-drive update <path> [opts]` | Update description, tags, metadata, and/or correspondent on an existing entry |
 | `claw-drive delete <path> [--force]` | Delete a file, its index entry, and dedup hash |
 | `claw-drive rm <path> [--force]` | Alias for `delete` |
 | `claw-drive status` | Show drive status (files, size, sync) |
@@ -182,6 +183,20 @@ claw-drive update insurance/card.pdf --metadata '{"deductible":"$500"}'
 ```
 
 Metadata merges on update — existing fields are preserved, new fields are added. The agent can now answer "when does my insurance expire?" directly from the index, without opening the file.
+
+## Correspondent Tracking
+
+Track who sent or issued each file — the person, company, or organization it came from:
+
+```bash
+# Set on store
+claw-drive store invoice.pdf -c finance -d "Q4 invoice" --correspondent "Acme Corp"
+
+# Add to existing file
+claw-drive update finance/invoice.pdf --correspondent "Acme Corp"
+```
+
+This lets the agent answer questions like "show me everything from Farmers Insurance" or "what did VEG send me?" by filtering on correspondent.
 
 ## Reindex
 
@@ -296,6 +311,7 @@ Claw Drive's agent **always asks before reading**. And if you don't answer, it a
 - [x] `verify --fix` — self-healing integrity checks
 - [x] `reindex` — batch re-enrichment of existing files
 - [x] Custom metadata fields — structured data per file
+- [x] Correspondent tracking — source person/organization per file
 - [x] Original filename preservation on rename
 - [ ] Watch folder ingestion (auto-import from Downloads)
 - [ ] Encrypted storage for sensitive categories

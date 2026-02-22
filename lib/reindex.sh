@@ -156,8 +156,9 @@ reindex_apply() {
     desc=$(jq -r ".orphans[$i].desc // \"\"" "$plan")
     tags=$(jq -r ".orphans[$i].tags // [] | join(\",\")" "$plan")
     source=$(jq -r ".orphans[$i].source // \"reindex\"" "$plan")
-    local metadata_json
+    local metadata_json correspondent_val
     metadata_json=$(jq -c ".orphans[$i].metadata // null" "$plan")
+    correspondent_val=$(jq -r ".orphans[$i].correspondent // \"\"" "$plan")
 
     if [[ -z "$desc" ]]; then
       echo "  ⚠️  No description for orphan: $path (skipping)"
@@ -177,9 +178,10 @@ reindex_apply() {
       echo "     desc: $desc"
       echo "     tags: $tags"
       [[ -n "$meta_arg" ]] && echo "     metadata: $meta_arg"
+      [[ -n "$correspondent_val" ]] && echo "     correspondent: $correspondent_val"
     else
       # Add to index
-      index_add "$date_str" "$path" "$desc" "$tags" "$source" "$meta_arg"
+      index_add "$date_str" "$path" "$desc" "$tags" "$source" "$meta_arg" "" "$correspondent_val"
 
       # Register hash
       local full="$CLAW_DRIVE_DIR/$path"
@@ -199,18 +201,20 @@ reindex_apply() {
 
   i=0
   while [[ $i -lt $existing_count ]]; do
-    local new_desc new_tags new_metadata path
+    local new_desc new_tags new_metadata new_correspondent path
     path=$(jq -r ".existing[$i].path" "$plan")
     new_desc=$(jq -r ".existing[$i].new_desc // \"\"" "$plan")
     new_tags=$(jq -r ".existing[$i].new_tags // null" "$plan")
     new_metadata=$(jq -c ".existing[$i].new_metadata // null" "$plan")
+    new_correspondent=$(jq -r ".existing[$i].new_correspondent // \"\"" "$plan")
 
-    if [[ -n "$new_desc" || "$new_tags" != "null" || "$new_metadata" != "null" ]]; then
+    if [[ -n "$new_desc" || "$new_tags" != "null" || "$new_metadata" != "null" || -n "$new_correspondent" ]]; then
       if [[ "$dry_run" == "true" ]]; then
         echo "  📝 Would update: $path"
         [[ -n "$new_desc" ]] && echo "     new desc: $new_desc"
         [[ "$new_tags" != "null" ]] && echo "     new tags: $(jq -r ".existing[$i].new_tags | join(\",\")" "$plan")"
         [[ "$new_metadata" != "null" ]] && echo "     new metadata: $new_metadata"
+        [[ -n "$new_correspondent" ]] && echo "     new correspondent: $new_correspondent"
       else
         local update_args=()
         [[ -n "$new_desc" ]] && update_args+=(--desc "$new_desc")
@@ -220,6 +224,7 @@ reindex_apply() {
           update_args+=(--tags "$tags_csv")
         fi
         [[ "$new_metadata" != "null" ]] && update_args+=(--metadata "$new_metadata")
+        [[ -n "$new_correspondent" ]] && update_args+=(--correspondent "$new_correspondent")
 
         index_update "$path" "${update_args[@]}"
         echo "  ✅ Updated: $path"

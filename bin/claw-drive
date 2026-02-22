@@ -116,7 +116,7 @@ validate_in_drive_dir() {
 }
 
 cmd_store() {
-  local file="" category="" description="" tags="" source_name="" metadata=""
+  local file="" category="" description="" tags="" source_name="" metadata="" correspondent=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -126,6 +126,7 @@ cmd_store() {
       --source|-s) source_name="$2"; shift 2 ;;
       --name|-n) local custom_name="$2"; shift 2 ;;
       --metadata|-m) metadata="$2"; shift 2 ;;
+      --correspondent) correspondent="$2"; shift 2 ;;
       --json) local json_output=true; shift ;;
       *) file="$1"; shift ;;
     esac
@@ -180,7 +181,7 @@ cmd_store() {
   if [[ "$original_file_name" != "$basename" ]]; then
     original_name_arg="$original_file_name"
   fi
-  index_add "$date_str" "$category/$basename" "$description" "${tags:-}" "${source_name:-manual}" "${metadata:-}" "$original_name_arg"
+  index_add "$date_str" "$category/$basename" "$description" "${tags:-}" "${source_name:-manual}" "${metadata:-}" "$original_name_arg" "${correspondent:-}"
 
   if [[ "${json_output:-}" == "true" ]]; then
     printf '{"status":"stored","path":"%s","category":"%s","tags":"%s","hash":"%s"}\n' \
@@ -193,27 +194,28 @@ cmd_store() {
 }
 
 cmd_update() {
-  local target_path="" desc="" tags="" metadata=""
+  local target_path="" desc="" tags="" metadata="" correspondent=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --desc|-d) desc="$2"; shift 2 ;;
       --tags|-t) tags="$2"; shift 2 ;;
       --metadata|-m) metadata="$2"; shift 2 ;;
+      --correspondent) correspondent="$2"; shift 2 ;;
       --json) shift ;;
       *) target_path="$1"; shift ;;
     esac
   done
 
   if [[ -z "$target_path" ]]; then
-    echo "❌ Usage: claw-drive update <path> [--desc <description>] [--tags <tags>] [--metadata <json>]"
+    echo "❌ Usage: claw-drive update <path> [--desc <desc>] [--tags <tags>] [--metadata <json>] [--correspondent <name>]"
     return 1
   fi
 
   validate_path_component "path" "$target_path" || return 1
 
-  if [[ -z "$desc" && -z "$tags" && -z "$metadata" ]]; then
-    echo "❌ At least one of --desc, --tags, or --metadata is required"
+  if [[ -z "$desc" && -z "$tags" && -z "$metadata" && -z "$correspondent" ]]; then
+    echo "❌ At least one of --desc, --tags, --metadata, or --correspondent is required"
     return 1
   fi
 
@@ -228,12 +230,14 @@ cmd_update() {
   [[ -n "$desc" ]] && update_args+=(--desc "$desc")
   [[ -n "$tags" ]] && update_args+=(--tags "$tags")
   [[ -n "$metadata" ]] && update_args+=(--metadata "$metadata")
+  [[ -n "$correspondent" ]] && update_args+=(--correspondent "$correspondent")
 
   index_update "$target_path" "${update_args[@]}"
   echo "✅ Updated: $target_path"
   [[ -n "$desc" ]] && echo "   Description: $desc" || true
   [[ -n "$tags" ]] && echo "   Tags: $tags" || true
   [[ -n "$metadata" ]] && echo "   Metadata: $metadata" || true
+  [[ -n "$correspondent" ]] && echo "   Correspondent: $correspondent" || true
 }
 
 cmd_delete() {
@@ -551,6 +555,7 @@ Store options:
   --tags, -t <tag1,tag2>        Comma-separated tags
   --source, -s <source>         Source (email, telegram, manual)
   --metadata, -m <json>         Custom metadata JSON (e.g. '{"expiry":"2027-01","amount":"\$150"}')
+  --correspondent <name>        Source person/organization (e.g. "Farmers Insurance")
   --json                        JSON output
 
 Environment:
