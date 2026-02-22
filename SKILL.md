@@ -55,7 +55,7 @@ The CLI handles copying, hashing, deduplication, and index updates atomically. B
 
 **PATH note:** If installed via Homebrew (`brew install dissaozw/tap/claw-drive`), the binary is in `/opt/homebrew/bin/` and should be in PATH automatically. If installed manually, `~/.local/bin` may not be in the agent shell's PATH — use the full path:
 ```bash
-~/.local/bin/claw-drive store ...
+claw-drive store ...
 ```
 If the manual symlink is broken, re-run `make install` from `~/.openclaw/skills/claw-drive/` to fix it.
 
@@ -91,7 +91,7 @@ When receiving a file (email attachment, Telegram upload, etc.):
 6. **Tag** — include specific tags from extracted content (model names, policy numbers, VINs, entity names) in addition to category tags
 7. **Store** — run the CLI (use full path if `claw-drive` not in PATH):
    ```bash
-   ~/.local/bin/claw-drive store <file> --category <cat> --name "clean-name.ext" --desc "Rich description with key details" --tags "tag1, tag2" --source telegram
+   claw-drive store <file> --category <cat> --name "clean-name.ext" --desc "Rich description with key details" --tags "tag1, tag2" --source telegram
    ```
    ⚠️ **Do NOT use `cp` or write files directly to `~/claw-drive/`.** The CLI is the only correct way to store files — it handles copying, hashing, dedup, and index updates atomically.
 8. **Report** — tell the user: path, category, tags, key extracted details, and what was indexed
@@ -178,7 +178,7 @@ INDEX.jsonl is a JSONL file — one JSON object per line. Each entry has: `date`
 ### Updating an entry
 
 ```bash
-~/.local/bin/claw-drive update <path> --desc "new description" --tags "new, tags"
+claw-drive update <path> --desc "new description" --tags "new, tags"
 ```
 
 Both `--desc` and `--tags` are optional (at least one required). Uses `jq` for atomic rewrite.
@@ -186,7 +186,7 @@ Both `--desc` and `--tags` are optional (at least one required). Uses `jq` for a
 ### Deleting a file
 
 ```bash
-~/.local/bin/claw-drive delete <path> --force
+claw-drive delete <path> --force
 ```
 
 Without `--force`, shows what would be deleted (dry run). With `--force`, removes file + index entry + dedup hash.
