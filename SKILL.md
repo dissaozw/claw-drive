@@ -199,7 +199,7 @@ Tags add cross-category searchability. A file lives in one folder but can have m
 - 1-5 tags per file, comma-separated
 - Lowercase, single words or short hyphenated phrases
 - Always include the category name as a tag (e.g. `medical` for files in `medical/`)
-- Add cross-cutting tags for things like: entity names (`sorbet`), document type (`invoice`, `receipt`, `report`), context (`emergency`, `tax-2025`)
+- Add cross-cutting tags for things like: entity names (`my-cat`), document type (`invoice`, `receipt`, `report`), context (`emergency`, `tax-2025`)
 - Reuse existing tags when possible — read INDEX.jsonl to see existing tags before inventing new ones
 
 **Examples:**
@@ -210,7 +210,7 @@ claw-drive store file.pdf -c insurance -n "acme-auto-id-cards.pdf" \
   -t "insurance, auto, acme, id-card, honda-civic, california" -s telegram
 
 # Vet invoice — after extracting: clinic, amount, diagnosis, pet name
-claw-drive store invoice.pdf -c medical -n "sorbet-vet-invoice-2026-02-15.pdf" \
+claw-drive store invoice.pdf -c medical -n "my-cat-vet-invoice-2026-02-15.pdf" \
   -d "VEG emergency visit invoice - Max (cat), $1,234.56, bronchial pattern diagnosis, prednisolone prescribed" \
   -t "medical, invoice, max, emergency, vet" -s email
 
@@ -232,7 +232,7 @@ claw-drive store doc.pdf -c contracts -n "apartment-lease-2026.pdf" \
 
 ### Naming conventions
 
-- Lowercase, hyphens between words: `sorbet-vet-invoice-2026-02-15.pdf`
+- Lowercase, hyphens between words: `my-cat-vet-invoice-2026-02-15.pdf`
 - Include date when relevant
 - Include subject/entity name for clarity
 - Keep it human-readable — no UUIDs or timestamps
