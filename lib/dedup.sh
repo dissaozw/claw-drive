@@ -41,6 +41,32 @@ dedup_register() {
   echo "$hash  $relative_path" >> "$CLAW_DRIVE_HASHES"
 }
 
+# Update a registered path in hash ledger after move/rename
+# Usage: dedup_move <old_path> <new_path>
+dedup_move() {
+  local old_path="$1"
+  local new_path="$2"
+
+  if [[ ! -f "$CLAW_DRIVE_HASHES" ]]; then
+    return 0
+  fi
+
+  local tmp
+  tmp=$(mktemp) || { echo "❌ mktemp failed" >&2; return 1; }
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    local hash="${line%%  *}"
+    local path="${line#*  }"
+    if [[ "$path" == "$old_path" ]]; then
+      printf '%s  %s\n' "$hash" "$new_path"
+    else
+      printf '%s\n' "$line"
+    fi
+  done < "$CLAW_DRIVE_HASHES" > "$tmp"
+
+  mv "$tmp" "$CLAW_DRIVE_HASHES"
+}
+
 # Show dedup stats
 dedup_status() {
   local format="${1:-table}"

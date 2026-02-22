@@ -88,15 +88,22 @@ When receiving a file (email attachment, Telegram upload, etc.):
    - **Other formats:** read directly if possible
    - Pull out key entities: names, dates, amounts, account/policy numbers, addresses, etc.
 3. **Classify** — determine the best category from the categories table below
-4. **Name** — choose a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
-5. **Describe** — write a rich description using extracted content (or user-provided description for sensitive files). Include key details (dates, amounts, IDs, names) so the file is findable by any relevant search term. Don't be vague — "insurance card" is bad, "Acme Insurance ID cards - 2024 Honda Civic, Policy ****3441, effective 1/21/2026–7/21/2026" is good.
-6. **Tag** — include specific tags from extracted content (model names, policy numbers, VINs, entity names) in addition to category tags
-7. **Store** — run the CLI (use full path if `claw-drive` not in PATH):
+4. **Inspect category structure** — after choosing a category, examine existing subfolders in that category (e.g. with `tree`/`find`) before finalizing destination
+5. **Choose destination path**
+   - If an existing subfolder is a clear semantic match, store there
+   - If multiple existing subfolders could match (conflicting/ambiguous), store at category root
+   - Store at category root when the file is only generally related to the category and lacks specific detail
+   - Create a new subfolder only when no existing subfolder fits and the file has clear specific detail that justifies one
+6. **Name** — choose a descriptive filename: `<subject>-<detail>-<YYYY-MM-DD>.<ext>`
+7. **Describe** — write a rich description using extracted content (or user-provided description for sensitive files). Include key details (dates, amounts, IDs, names) so the file is findable by any relevant search term. Don't be vague — "insurance card" is bad, "Acme Insurance ID cards - 2024 Honda Civic, Policy ****3441, effective 1/21/2026–7/21/2026" is good.
+8. **Tag** — include specific tags from extracted content (model names, policy numbers, VINs, entity names) in addition to category tags
+9. **Store** — run the CLI (use full path if `claw-drive` not in PATH):
    ```bash
-   claw-drive store <file> --category <cat> --name "clean-name.ext" --desc "Rich description with key details" --tags "tag1, tag2" --source telegram
+   claw-drive store <file> --category <cat> --name 'clean-name.ext' --desc 'Rich description with key details' --tags 'tag1, tag2' --source telegram
    ```
+   - **Shell quoting safety:** Prefer single quotes for `--desc`/`--tags`/`--name` when constructing shell commands. This avoids `$` expansion (e.g. currency amounts like `$941.39`) and prevents metadata corruption.
    ⚠️ **Do NOT use `cp` or write files directly to `~/claw-drive/`.** The CLI is the only correct way to store files — it handles copying, hashing, dedup, and index updates atomically.
-8. **Report** — tell the user: path, category, tags, key extracted details, and what was indexed
+10. **Report** — tell the user: path, category, tags, key extracted details, and what was indexed
 
 The CLI handles copying, hashing, deduplication, and index updates automatically. If the file is a duplicate, it will be rejected.
 

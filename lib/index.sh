@@ -135,6 +135,20 @@ index_has() {
   jq -r '.path // empty' "$CLAW_DRIVE_INDEX" 2>/dev/null | grep -Fxq "$target_path"
 }
 
+# Rename/move an entry path in the index (exact match)
+# Usage: index_move <old_path> <new_path>
+index_move() {
+  local old_path="$1"
+  local new_path="$2"
+  local tmp
+  tmp=$(safe_mktemp) || return 1
+
+  jq -c --arg old "$old_path" --arg new "$new_path" \
+    'if .path == $old then .path = $new else . end' \
+    "$CLAW_DRIVE_INDEX" > "$tmp"
+  mv "$tmp" "$CLAW_DRIVE_INDEX"
+}
+
 # Dedup: remove hash entry for a path (exact match, regex-safe)
 dedup_unregister() {
   local target_path="$1"

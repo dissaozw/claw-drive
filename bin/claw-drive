@@ -243,6 +243,80 @@ cmd_update() {
   [[ -n "$source_name" ]] && echo "   Source: $source_name" || true
 }
 
+cmd_move() {
+  local source_path="" category="" custom_name="" dry_run=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --category|-c) category="$2"; shift 2 ;;
+      --name|-n) custom_name="$2"; shift 2 ;;
+      --dry-run) dry_run=true; shift ;;
+      *) source_path="$1"; shift ;;
+    esac
+  done
+
+  if [[ -z "$source_path" || -z "$category" ]]; then
+    echo "❌ Usage: claw-drive move <path> --category <cat> [--name <name>] [--dry-run]"
+    return 1
+  fi
+
+  validate_path_component "path" "$source_path" || return 1
+  validate_path_component "--category" "$category" || return 1
+  [[ -n "$custom_name" ]] && validate_filename "--name" "$custom_name" || true
+
+  claw_drive_init || return 1
+
+  if ! index_has "$source_path"; then
+    echo "❌ Not found in index: $source_path"
+    return 1
+  fi
+
+  local source_full="$CLAW_DRIVE_DIR/$source_path"
+  if [[ ! -f "$source_full" ]]; then
+    echo "❌ File missing on disk: $source_path"
+    return 1
+  fi
+
+  local basename
+  basename="${custom_name:-$(basename "$source_path")}" 
+  local dest_path="$category/$basename"
+  local dest_full="$CLAW_DRIVE_DIR/$dest_path"
+
+  if [[ "$source_path" == "$dest_path" ]]; then
+    echo "❌ Source and destination are the same: $source_path"
+    return 1
+  fi
+
+  if index_has "$dest_path"; then
+    echo "❌ Destination already exists in index: $dest_path"
+    return 1
+  fi
+
+  mkdir -p "$CLAW_DRIVE_DIR/$category"
+  validate_in_drive_dir "$dest_full" || return 1
+
+  if [[ -e "$dest_full" ]]; then
+    echo "❌ Destination already exists on disk: $dest_path"
+    return 1
+  fi
+
+  if [[ "$dry_run" == "true" ]]; then
+    echo "⚠️  Dry run:"
+    echo "   From: $source_path"
+    echo "   To:   $dest_path"
+    echo ""
+    echo "Run without --dry-run to apply."
+    return 0
+  fi
+
+  mv "$source_full" "$dest_full"
+  index_move "$source_path" "$dest_path"
+  dedup_move "$source_path" "$dest_path"
+
+  echo "✅ Moved: $source_path"
+  echo "   To: $dest_path"
+}
+
 cmd_delete() {
   local target_path="" force=false
 
@@ -541,6 +615,8 @@ Commands:
   init [path]                   Initialize drive at path (default: ~/claw-drive)
   store <file> [options]        Store a file with categorization
   update <path> [options]       Update description/tags on an entry
+  move <path> --category <cat>  Move/rename a file and update index entry
+                                (options: --name <name>, --dry-run)
   delete <path> [--force]       Delete a file and its index entry
   status [--json]               Show drive status
   verify [--fix]                Check index ↔ disk ↔ hash consistency; --fix auto-repairs
@@ -574,6 +650,7 @@ case "${1:-help}" in
   init)     shift; cmd_init "$@" ;;
   store)    shift; cmd_store "$@" ;;
   update)   shift; cmd_update "$@" ;;
+  move|mv)  shift; cmd_move "$@" ;;
   delete|rm) shift; cmd_delete "$@" ;;
   status)   shift; cmd_status "$@" ;;
   verify)   shift; cmd_verify "$@" ;;

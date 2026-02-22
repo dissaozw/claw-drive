@@ -112,6 +112,21 @@ else
   ((failed++)) || true
 fi
 
+# --- Dollar sign in description (shell expansion edge case) ---
+echo ""
+echo "Dollar sign in description:"
+echo "dollar test" > "$SRC_DIR/dollarfile.txt"
+assert "store with $ in desc (proper single-quote usage)" bash "$CLI" store "$SRC_DIR/dollarfile.txt" \
+  --category documents --desc 'Paid $941.39 total' --tags "test" --source manual
+local_dollar_desc=$(jq -r 'select(.path=="documents/dollarfile.txt") | .desc' "$TEST_DIR/INDEX.jsonl")
+if [[ "$local_dollar_desc" == 'Paid $941.39 total' ]]; then
+  echo "  ✅ dollar sign preserved in desc"
+  ((passed++)) || true
+else
+  echo "  ❌ dollar sign NOT preserved (got: $local_dollar_desc)"
+  ((failed++)) || true
+fi
+
 # --- Dedup ---
 echo ""
 echo "Dedup:"
@@ -165,6 +180,35 @@ else
 fi
 
 assert_output "update nonexistent fails" "Not found" bash "$CLI" update "nonexistent.txt" --desc "nope"
+
+# --- Move ---
+echo ""
+echo "Move:"
+assert "move to nested category" bash "$CLI" move "documents/testfile.txt" --category "medical/sorbet"
+assert "moved file exists" test -f "$TEST_DIR/medical/sorbet/testfile.txt"
+assert "source file removed after move" test ! -f "$TEST_DIR/documents/testfile.txt"
+local_moved_index=$(jq -r 'select(.path=="medical/sorbet/testfile.txt") | .path' "$TEST_DIR/INDEX.jsonl")
+if [[ "$local_moved_index" == "medical/sorbet/testfile.txt" ]]; then
+  echo "  ✅ index path updated after move"
+  ((passed++)) || true
+else
+  echo "  ❌ index path not updated after move"
+  ((failed++)) || true
+fi
+if grep -q "medical/sorbet/testfile.txt" "$TEST_DIR/.hashes" 2>/dev/null && ! grep -q "documents/testfile.txt" "$TEST_DIR/.hashes" 2>/dev/null; then
+  echo "  ✅ hash ledger path updated after move"
+  ((passed++)) || true
+else
+  echo "  ❌ hash ledger path not updated after move"
+  ((failed++)) || true
+fi
+assert_output "move dry-run previews only" "Dry run" bash "$CLI" move "documents/custom-name.txt" --category "documents" --name "custom-renamed.txt" --dry-run
+assert "dry-run does not move file" test -f "$TEST_DIR/documents/custom-name.txt"
+assert "move with rename" bash "$CLI" move "documents/custom-name.txt" --category "documents" --name "custom-renamed.txt"
+assert "renamed file exists" test -f "$TEST_DIR/documents/custom-renamed.txt"
+assert_output "move nonexistent fails" "Not found" bash "$CLI" move "documents/does-not-exist.txt" --category "misc"
+assert_output "move missing category fails" "Usage" bash "$CLI" move "documents/custom-renamed.txt"
+assert_output "move path traversal rejected" "must not contain" bash "$CLI" move "../outside.txt" --category "misc"
 
 # --- Delete ---
 echo ""
