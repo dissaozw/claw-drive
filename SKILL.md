@@ -1,6 +1,25 @@
 ---
 name: claw-drive
 description: "Claw Drive — AI-managed personal drive for OpenClaw. Auto-categorize, tag, deduplicate, and retrieve files with natural language. Backed by Google Drive for cloud sync and security. Use when receiving files to store, or when asked to find/retrieve a previously stored file."
+homepage: https://github.com/dissaozw/claw-drive
+metadata:
+  {
+    "openclaw":
+      {
+        "emoji": "📂",
+        "requires": { "bins": ["claw-drive"] },
+        "install":
+          [
+            {
+              "id": "git",
+              "kind": "shell",
+              "command": "git clone https://github.com/dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive && cd ~/.openclaw/skills/claw-drive && bash install.sh",
+              "bins": ["claw-drive"],
+              "label": "Install Claw Drive (git clone + install.sh)",
+            },
+          ],
+      },
+  }
 ---
 
 # Claw Drive
