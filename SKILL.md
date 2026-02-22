@@ -11,11 +11,11 @@ metadata:
         "install":
           [
             {
-              "id": "git",
-              "kind": "shell",
-              "command": "git clone https://github.com/dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive && cd ~/.openclaw/skills/claw-drive && bash install.sh",
+              "id": "brew",
+              "kind": "brew",
+              "formula": "dissaozw/tap/claw-drive",
               "bins": ["claw-drive"],
-              "label": "Install Claw Drive (git clone + install.sh)",
+              "label": "Install Claw Drive (brew)",
             },
           ],
       },
