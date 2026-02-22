@@ -37,6 +37,8 @@ Organize and retrieve personal files with auto-categorization and a searchable i
 - **Descriptions in INDEX.jsonl are also persistent.** Don't put sensitive details (SSNs, account numbers, passwords) in descriptions even for non-sensitive files — use redacted/partial forms (e.g. "account ending ****4321").
 - **When in doubt, don't read.** A vague index entry is better than leaked personal data.
 
+**Data locality:** All data stays on your machine. INDEX.jsonl, stored files, and hash ledger are local. Conversation transcripts (`.jsonl`) are also local to your OpenClaw instance. Nothing is sent to external servers unless you explicitly enable Google Drive sync (optional, and only syncs the files you choose).
+
 ## Dependencies
 
 - **claw-drive CLI** — `brew install dissaozw/tap/claw-drive` (or `make install` from skill directory for manual setup)
@@ -293,6 +295,12 @@ brew install rclone fswatch
 ### Authorization
 
 Run `claw-drive sync auth`. It opens a browser on the machine for Google sign-in.
+
+**What happens:**
+- rclone requests **Google Drive file access only** (not full Google account)
+- OAuth token is stored locally at `~/.config/rclone/rclone.conf` — never sent to any third party
+- Data flows directly from your machine to Google Drive — no intermediary servers
+- You can revoke access anytime via Google Account → Security → Third-party apps
 
 **Agent behavior during auth:**
 1. Run `claw-drive sync auth` in background
