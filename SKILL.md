@@ -53,11 +53,11 @@ The CLI handles copying, hashing, deduplication, and index updates atomically. B
 - INDEX.jsonl out of sync with actual files
 - Version confusion when replacing files
 
-**PATH note:** `~/.local/bin` may not be in the agent shell's PATH. If `claw-drive` is not found, use the full path:
+**PATH note:** If installed via Homebrew (`brew install dissaozw/tap/claw-drive`), the binary is in `/opt/homebrew/bin/` and should be in PATH automatically. If installed manually, `~/.local/bin` may not be in the agent shell's PATH — use the full path:
 ```bash
 ~/.local/bin/claw-drive store ...
 ```
-If the symlink is broken (e.g. after renaming the skill directory), re-run `make install` from `~/.openclaw/skills/claw-drive/` to fix it.
+If the manual symlink is broken, re-run `make install` from `~/.openclaw/skills/claw-drive/` to fix it.
 
 ## Setup
 
