@@ -168,12 +168,11 @@ sync_push() {
     return 1
   fi
 
-  local exclude_args
-  exclude_args=$(sync_build_exclude_args)
+  local exclude_args=()
+  mapfile -t exclude_args < <(sync_build_exclude_args_lines)
 
   echo "📤 Syncing $CLAW_DRIVE_DIR → $remote ..."
-  # shellcheck disable=SC2086
-  rclone sync "$CLAW_DRIVE_DIR" "$remote" $exclude_args --verbose 2>&1
+  rclone sync "$CLAW_DRIVE_DIR" "$remote" "${exclude_args[@]}" --verbose 2>&1
 
   date -u +"%Y-%m-%dT%H:%M:%SZ" > "$CLAW_DRIVE_SYNC_STATE"
   echo "✅ Sync complete."
@@ -188,8 +187,8 @@ sync_watch_loop() {
     return 1
   fi
 
-  local exclude_args
-  exclude_args=$(sync_build_exclude_args)
+  local exclude_args=()
+  mapfile -t exclude_args < <(sync_build_exclude_args_lines)
 
   echo "👀 Watching $CLAW_DRIVE_DIR for changes (debounce: ${SYNC_DEBOUNCE_SEC}s)..."
   echo "📡 Remote: $remote"
@@ -200,8 +199,7 @@ sync_watch_loop() {
     --exclude '\.DS_Store$' \
     "$CLAW_DRIVE_DIR" | while read -r _count; do
     echo "[$(date '+%H:%M:%S')] Change detected, syncing..."
-    # shellcheck disable=SC2086
-    if rclone sync "$CLAW_DRIVE_DIR" "$remote" $exclude_args 2>&1; then
+    if rclone sync "$CLAW_DRIVE_DIR" "$remote" "${exclude_args[@]}" 2>&1; then
       date -u +"%Y-%m-%dT%H:%M:%SZ" > "$CLAW_DRIVE_SYNC_STATE"
       echo "[$(date '+%H:%M:%S')] ✅ Sync complete."
     else

@@ -50,12 +50,14 @@ sync_config_excludes() {
   fi
 }
 
-# Build rclone exclude arguments from sync config
-sync_build_exclude_args() {
-  local args=""
+# Build rclone exclude arguments from sync config as a safe array.
+# Output format: one arg per line ("--exclude" then pattern), for mapfile consumption.
+sync_build_exclude_args_lines() {
   while IFS= read -r pattern; do
-    [[ -n "$pattern" ]] && args="$args --exclude $pattern"
+    [[ -n "$pattern" ]] || continue
+    printf '%s\n' "--exclude" "$pattern"
   done < <(sync_config_excludes)
-  args="$args --exclude .sync-config --exclude .sync-state"
-  echo "$args"
+
+  # Always exclude internal state files
+  printf '%s\n' "--exclude" ".sync-config" "--exclude" ".sync-state"
 }

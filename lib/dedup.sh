@@ -20,7 +20,9 @@ dedup_check() {
   hash=$(dedup_hash "$file")
 
   local existing
-  existing=$(grep "^$hash " "$CLAW_DRIVE_HASHES" | head -1 | awk '{print $2}')
+  existing=$(grep "^$hash " "$CLAW_DRIVE_HASHES" | head -1)
+  # Preserve paths with spaces by splitting on the double-space delimiter.
+  existing="${existing#*  }"
 
   if [[ -n "$existing" ]]; then
     echo "$existing"

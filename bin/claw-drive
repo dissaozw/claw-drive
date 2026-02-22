@@ -310,8 +310,21 @@ cmd_move() {
   fi
 
   mv "$source_full" "$dest_full"
-  index_move "$source_path" "$dest_path"
-  dedup_move "$source_path" "$dest_path"
+
+  if [[ "${CLAW_DRIVE_TEST_FAIL_INDEX_MOVE:-0}" == "1" ]] || ! index_move "$source_path" "$dest_path"; then
+    # Roll back file move on index failure
+    mv "$dest_full" "$source_full" 2>/dev/null || true
+    echo "❌ Move failed: could not update index for $source_path → $dest_path"
+    return 1
+  fi
+
+  if [[ "${CLAW_DRIVE_TEST_FAIL_DEDUP_MOVE:-0}" == "1" ]] || ! dedup_move "$source_path" "$dest_path"; then
+    # Best-effort rollback of index + file for consistency
+    index_move "$dest_path" "$source_path" 2>/dev/null || true
+    mv "$dest_full" "$source_full" 2>/dev/null || true
+    echo "❌ Move failed: could not update hash ledger for $source_path → $dest_path"
+    return 1
+  fi
 
   echo "✅ Moved: $source_path"
   echo "   To: $dest_path"

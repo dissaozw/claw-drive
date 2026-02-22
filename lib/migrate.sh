@@ -95,7 +95,12 @@ migrate_apply() {
   echo ""
 
   local source_dir
-  source_dir=$(python3 -c "import json,sys; print(json.load(open('$plan_file'))['source'])")
+  source_dir=$(python3 - "$plan_file" <<'PY'
+import json, sys
+with open(sys.argv[1], 'r', encoding='utf-8') as f:
+    print(json.load(f)['source'])
+PY
+)
 
   local total=0 stored=0 skipped=0 dupes=0 errors=0
 
@@ -119,8 +124,24 @@ migrate_apply() {
       continue
     fi
 
+    # Validate source path from plan: must stay within source_dir
+    if ! validate_path_component "source_path" "$src_path" 2>&1; then
+      echo "  ❌ Unsafe source path in plan: $src_path"
+      ((errors++)) || true
+      continue
+    fi
+
     local full_source="$source_dir/$src_path"
-    if [[ ! -f "$full_source" ]]; then
+    local resolved_source source_root
+    resolved_source=$(cd "$(dirname "$full_source")" 2>/dev/null && pwd -P)/$(basename "$full_source")
+    source_root=$(cd "$source_dir" 2>/dev/null && pwd -P)
+    if [[ "$resolved_source" != "$source_root"/* ]]; then
+      echo "  ❌ Source path escapes migration source root: $src_path"
+      ((errors++)) || true
+      continue
+    fi
+
+    if [[ ! -f "$resolved_source" ]]; then
       echo "  ❌ Source missing: $src_path"
       ((errors++)) || true
       continue
@@ -128,7 +149,7 @@ migrate_apply() {
 
     # Dedup check
     local existing
-    if existing=$(dedup_check "$full_source"); then
+    if existing=$(dedup_check "$resolved_source"); then
       echo "  🔁 Duplicate (exists at $existing): $src_path"
       ((dupes++)) || true
       continue
@@ -144,7 +165,7 @@ migrate_apply() {
         ((errors++)) || true
         continue
       fi
-      cp "$full_source" "$dest"
+      cp "$resolved_source" "$dest"
       dedup_register "$dest" "$category/$new_name"
 
       # Update index
@@ -155,9 +176,10 @@ migrate_apply() {
       echo "  ✅ $src_path → $category/$new_name"
     fi
     ((stored++)) || true
-  done < <(python3 -c "
+  done < <(python3 - "$plan_file" <<'PY'
 import json, sys
-plan = json.load(open('$plan_file'))
+with open(sys.argv[1], 'r', encoding='utf-8') as fh:
+    plan = json.load(fh)
 for f in plan['files']:
     if f.get('status') == 'skip':
         continue
@@ -168,7 +190,8 @@ for f in plan['files']:
     src = f.get('source_path') or ''
     conf = f.get('confidence') or ''
     print(f'{src}\t{cat}\t{name}\t{tags}\t{desc}\t{conf}')
-")
+PY
+)
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -188,17 +211,18 @@ migrate_summary() {
     return 1
   fi
 
-  python3 -c "
-import json
-plan = json.load(open('$plan_file'))
+  python3 - "$plan_file" <<'PY'
+import json, sys
+with open(sys.argv[1], 'r', encoding='utf-8') as fh:
+    plan = json.load(fh)
 files = plan['files']
 total = len(files)
 ready = sum(1 for f in files if f.get('category') and f.get('name'))
 pending = sum(1 for f in files if not f.get('category') or not f.get('name'))
 skip = sum(1 for f in files if f.get('status') == 'skip')
 
-print(f'📋 Migration Plan: {plan[\"source\"]}')
-print(f'   Scanned: {plan.get(\"scanned_at\", \"unknown\")}')
+print(f'📋 Migration Plan: {plan["source"]}')
+print(f'   Scanned: {plan.get("scanned_at", "unknown")}')
 print(f'   Total files: {total}')
 print(f'   Ready: {ready}')
 print(f'   Pending classification: {pending}')
@@ -213,5 +237,5 @@ for f in files:
 print('   Categories:')
 for c in sorted(cats, key=cats.get, reverse=True):
     print(f'     {c}: {cats[c]}')
-"
+PY
 }

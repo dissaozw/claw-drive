@@ -137,6 +137,14 @@ echo "different content" > "$SRC_DIR/testfile2.txt"
 assert "different file stores fine" bash "$CLI" store "$SRC_DIR/testfile2.txt" \
   --category finance --desc "Finance doc" --tags "finance, test" --source email
 
+# dedup path parsing should preserve spaces in existing path
+echo "space content" > "$SRC_DIR/space-a.txt"
+cp "$SRC_DIR/space-a.txt" "$SRC_DIR/space-b.txt"
+assert "store file with spaced name" bash "$CLI" store "$SRC_DIR/space-a.txt" \
+  --category documents --name "space name.txt" --desc "spaced path" --tags "test" --source manual
+assert_output "duplicate output preserves spaced path" "space name.txt" bash "$CLI" store "$SRC_DIR/space-b.txt" \
+  --category documents --desc "dupe" --tags "test" --source manual || true
+
 # --- Store with --name ---
 echo ""
 echo "Store --name:"
@@ -206,6 +214,22 @@ assert_output "move dry-run previews only" "Dry run" bash "$CLI" move "documents
 assert "dry-run does not move file" test -f "$TEST_DIR/documents/custom-name.txt"
 assert "move with rename" bash "$CLI" move "documents/custom-name.txt" --category "documents" --name "custom-renamed.txt"
 assert "renamed file exists" test -f "$TEST_DIR/documents/custom-renamed.txt"
+# fault injection: index_move failure should rollback file move
+echo "rollback index unique" > "$SRC_DIR/rollback-index-src.txt"
+assert "store rollback test file (index)" bash "$CLI" store "$SRC_DIR/rollback-index-src.txt" \
+  --category documents --name "rollback-index.txt" --desc "rollback index" --tags "test" --source manual
+assert_output "move index failure injected" "could not update index" env CLAW_DRIVE_TEST_FAIL_INDEX_MOVE=1 bash "$CLI" move "documents/rollback-index.txt" --category "finance"
+assert "index-fail rollback kept source" test -f "$TEST_DIR/documents/rollback-index.txt"
+assert "index-fail rollback no destination" test ! -f "$TEST_DIR/finance/rollback-index.txt"
+
+# fault injection: dedup_move failure should rollback index+file
+echo "rollback dedup unique" > "$SRC_DIR/rollback-dedup-src.txt"
+assert "store rollback test file (dedup)" bash "$CLI" store "$SRC_DIR/rollback-dedup-src.txt" \
+  --category documents --name "rollback-dedup.txt" --desc "rollback dedup" --tags "test" --source manual
+assert_output "move dedup failure injected" "could not update hash ledger" env CLAW_DRIVE_TEST_FAIL_DEDUP_MOVE=1 bash "$CLI" move "documents/rollback-dedup.txt" --category "finance"
+assert "dedup-fail rollback kept source" test -f "$TEST_DIR/documents/rollback-dedup.txt"
+assert "dedup-fail rollback no destination" test ! -f "$TEST_DIR/finance/rollback-dedup.txt"
+
 assert_output "move nonexistent fails" "Not found" bash "$CLI" move "documents/does-not-exist.txt" --category "misc"
 assert_output "move missing category fails" "Usage" bash "$CLI" move "documents/custom-renamed.txt"
 assert_output "move path traversal rejected" "must not contain" bash "$CLI" move "../outside.txt" --category "misc"
@@ -312,6 +336,30 @@ else
 fi
 assert_output "verify clean after hash fix" "All clear" bash "$CLI" verify
 
+# --- Sync exclude args safety ---
+echo ""
+echo "Sync exclude args safety:"
+cat > "$TEST_DIR/.sync-config" <<'EOF'
+backend: google-drive
+remote: gdrive:claw-drive
+exclude:
+  - identity/
+  - '; touch /tmp/pwned #
+EOF
+
+sync_lines=$(CLAW_DRIVE_DIR="$TEST_DIR" CLAW_DRIVE_CONFIG_FILE="$TEST_DIR/.config" bash -c '
+  source "'$SCRIPT_DIR'/../lib/config.sh"
+  sync_build_exclude_args_lines
+')
+
+if echo "$sync_lines" | grep -Fxq -- "--exclude" && echo "$sync_lines" | grep -Fxq -- "'; touch /tmp/pwned #"; then
+  echo "  ✅ exclude patterns emitted as literal args"
+  ((passed++)) || true
+else
+  echo "  ❌ exclude args builder did not preserve literal pattern safely"
+  ((failed++)) || true
+fi
+
 # --- Status ---
 echo ""
 echo "Status:"
@@ -330,6 +378,11 @@ assert "migrate scan" bash "$CLI" migrate scan "$MIGRATE_SRC" "$PLAN_FILE"
 assert "plan file created" test -f "$PLAN_FILE"
 assert_output "plan has 2 files" "2" python3 -c "import json; print(len(json.load(open('$PLAN_FILE'))['files']))"
 assert_output "migrate summary" "Total files: 2" bash "$CLI" migrate summary "$PLAN_FILE"
+
+# plan filename quoting safety
+PLAN_FILE_QUOTED="$TEST_DIR/plan'quoted.json"
+cp "$PLAN_FILE" "$PLAN_FILE_QUOTED"
+assert "migrate summary with quote in filename" bash "$CLI" migrate summary "$PLAN_FILE_QUOTED"
 
 python3 -c "
 import json
@@ -351,6 +404,30 @@ json.dump(plan, open('$PLAN_FILE', 'w'), indent=2)
 "
 
 assert "migrate apply dry-run" bash "$CLI" migrate apply "$PLAN_FILE" --dry-run
+
+# migrate source_path traversal should be rejected
+echo "outside" > "$TEST_DIR/outside.txt"
+MALICIOUS_PLAN="$TEST_DIR/malicious-plan.json"
+cat > "$MALICIOUS_PLAN" <<EOF
+{
+  "source": "$MIGRATE_SRC",
+  "scanned_at": "2026-01-01T00:00:00Z",
+  "files": [
+    {
+      "source_path": "../outside.txt",
+      "category": "documents",
+      "name": "should-not-copy.txt",
+      "tags": "test",
+      "description": "malicious",
+      "confidence": "high",
+      "status": "pending"
+    }
+  ]
+}
+EOF
+assert_output "migrate rejects source_path traversal" "Unsafe source path" bash "$CLI" migrate apply "$MALICIOUS_PLAN"
+assert "traversal source not copied" test ! -f "$TEST_DIR/documents/should-not-copy.txt"
+
 assert "migrate apply" bash "$CLI" migrate apply "$PLAN_FILE"
 assert "migrated file exists" test -f "$TEST_DIR/finance/w2-form-2025.pdf"
 assert "migrated photo exists" test -f "$TEST_DIR/photos/vacation.jpg"
