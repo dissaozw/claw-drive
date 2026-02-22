@@ -38,19 +38,21 @@ Claw Drive is an AI-managed personal drive. It auto-categorizes your files, tags
 
 ## Install
 
+### Homebrew (recommended)
+
+```bash
+brew install dissaozw/tap/claw-drive
+claw-drive init
+```
+
 ### As an OpenClaw Skill
 
 Clone into your OpenClaw skills directory — OpenClaw picks it up automatically on the next session:
 
 ```bash
 git clone https://github.com/dissaozw/claw-drive.git ~/.openclaw/skills/claw-drive
-```
-
-Then install the CLI and initialize:
-
-```bash
 cd ~/.openclaw/skills/claw-drive
-make install   # symlinks claw-drive to /usr/local/bin (or PREFIX=~/.local make install)
+make install   # symlinks claw-drive to ~/.local/bin (or PREFIX=/usr/local make install)
 claw-drive init
 ```
 
